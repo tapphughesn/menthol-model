@@ -128,6 +128,8 @@ class Simulation(object):
         # another for state {1,5}
         # another for state 6 = death
 
+        # print("initial count:", np.sum(pop_arr[:,8])) # 188430785.536...
+
         arr234 = np.asarray([row for row in pop_arr 
                   if (row[4] == 2 or row[4] == 3 or row[4] == 4
                   or row[3] == 2 or row[3] == 3 or row[3] == 4)], dtype=np.float64)
@@ -154,7 +156,6 @@ class Simulation(object):
         # 8 weight
         # 9 age
         # 10 start_age
-        # 11 isalive
 
         def path_to_logistic_form(a):
             s2 = a[:,3]
@@ -179,11 +180,12 @@ class Simulation(object):
                 a[:,10][:,np.newaxis],
                 a[:,8][:,np.newaxis],
                 a[:,0][:,np.newaxis],
-                ((s2 != 1)*(s3 != 1))[:,np.newaxis],
+                np.zeros((a.shape[0],1)),
             ], axis=1, dtype=np.float64)
             return a
 
         arr234 = path_to_logistic_form(arr234)
+        arr234[:,-1] = np.ones((arr234.shape[0])) # hassmoked flag = 1 for people in 234
         arr15 = path_to_logistic_form(arr15)
         
         # print(arr234.shape) # (9533, 19)
@@ -192,15 +194,14 @@ class Simulation(object):
         # now the population arrays are in the right format for matrix mult
         # next step is to format the betas
 
-        # print(self.beta234.dtype) # float32
-        # print(self.beta15.dtype) # float32
+        # print(self.beta234.dtype) # float64
+        # print(self.beta15.dtype) # float64
 
         beta_234_aug = np.concatenate([
             self.beta234[:,:5],
             np.zeros((len(self.beta234), 1)),
             self.beta234[:,5:],
-            np.zeros((len(self.beta234), 3)),
-            np.ones((len(self.beta234), 1)),
+            np.zeros((len(self.beta234), 4)),
         ], axis=1, dtype=np.float64)
 
         beta_15_aug = np.concatenate([
@@ -268,6 +269,8 @@ class Simulation(object):
                                 (arr6[:,14] == pov) *
                                 (arr6[:,16])
                             )
+                        elif smoking_state == 6 and arr6 is None:
+                            count = 0
                         else:
                             count = np.sum(
                                 (arr234[:,11] == black) *
@@ -281,7 +284,7 @@ class Simulation(object):
                                 (arr15[:,4 + smoking_state] == 1) * 
                                 (arr15[:,16])
                             )
-
+                        
                         # write list and numpy arr
                         self.output_list_to_df.append([
                             cy + self.start_year,

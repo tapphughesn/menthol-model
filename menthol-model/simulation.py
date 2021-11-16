@@ -6,20 +6,21 @@ from datetime import date, datetime
 class Simulation(object):
 
     """
-    The output of a collection of simulation need to have 5 dimensions:
-        run
+    The array output of a simulation need to have 4 dimensions:
         year
         race
         poverty
         smoking state
     where each number in the array is the count of people who belong to these categories
 
-    could write this out as a dataframe with columns
+    This will also be written out as a dataframe with columns
         year, race, poverty, smoking state, count
 
     There are two logistic regression models:
         one for people in state 2,3,4 (former smoker, nonmenthol, menthol)
+            in wave 2 OR wave 3
         another for people in state 1,5 (nonsmoker, ecig only)
+            in wave 2 AND wave 3
 
     Need to transform ints into indicators (booleans)
 
@@ -31,7 +32,8 @@ class Simulation(object):
         5 -> ecig only
         6 -> dead
     
-    Here are the independent variables we need to track (mostly indicators):
+    Here are the independent variables we need to track 
+    for logistic regression (mostly indicators):
         prev state = 1
         prev state = 2
         prev state = 3
@@ -80,8 +82,8 @@ class Simulation(object):
                  save_xl_fname: str=None, 
                  save_np_fname: str=None, 
                  save_dir: str= '../../outputs/',
-                 end_year: int=2068, 
-                 start_year: int=2018,
+                 end_year: int=2064, 
+                 start_year: int=2014,
                  menthol_ban: bool=False):
         
         self.pop_df = pop_df
@@ -298,19 +300,20 @@ class Simulation(object):
             
             # ok writing the output stats is done
             # time to actually update the population
-            # start by randomly killing people :)
-            # CIA, disregard that last line
+            # start by randomly determining if people
+            # will die this year
             
             # male = 0
             # female = 1
 
             life_table_year = min(self.start_year + cy, 2018)
+            life_table_year = max(life_table_year, 2016)
             life_table_arr = np.concatenate([
                 self.life_tables[life_table_year][0].astype(np.float64)[np.newaxis, :],
                 self.life_tables[life_table_year][1].astype(np.float64)[np.newaxis, :],
             ], axis=0, dtype=np.float64)
 
-            # kill people in arr235
+            # people in arr235 randomly die
 
             chance = np.random.rand(len(arr234)).astype(np.float64)
             arr234_ages = arr234[:,12].astype(np.int32)
@@ -332,7 +335,7 @@ class Simulation(object):
             
             arr234 = arr234[np.logical_not(deaths_all)]
 
-            # kill people in arr15
+            # people in arr15 randomly die
 
             chance = np.random.rand(len(arr15)).astype(np.float64)
             arr15_ages = arr15[:,12].astype(np.int32)
@@ -354,7 +357,7 @@ class Simulation(object):
             
             arr15 = arr15[np.logical_not(deaths_all)]
 
-            # take into account instantaneous menthol ban effects
+            # TODO: take into account instantaneous menthol ban effects
 
             # next we update the smoking status of people
             logits_234 = np.matmul(arr234, beta_234_aug).astype(np.float64)
@@ -374,9 +377,6 @@ class Simulation(object):
                 p4*exps[:,2], # p5
             ], dtype=np.float64).transpose()
 
-            # print(probs.shape) # (9501, 4)
-            # print(np.max(np.abs(np.sum(probs, axis=1) - np.ones(len(probs))))) # close to zero
-
             exps = np.exp(logits_15)
             p4 = 1 / (1 + np.sum(exps, axis=1))
             probs15 = np.asarray([
@@ -394,7 +394,7 @@ class Simulation(object):
             probs15[:,1] += probs15[:,0] * hassmoked_15
             probs15[:,0] -= probs15[:,0] * hassmoked_15
 
-            # take into account menthol ban
+            # TODO: take into account menthol ban long-term effects
 
             if self.menthol_ban:
                 pass
@@ -402,7 +402,7 @@ class Simulation(object):
             # update current state, old state
 
             # proud of this
-            # need to think of a better name
+            # need to think of a better name for this function
             def random_select_arg_multinomial(probs):
                 chance = np.random.rand(probs.shape[0], 1)
                 forward = np.concatenate([chance < np.sum(probs[:,:i], axis=1)[:,np.newaxis] for i in range(1, probs.shape[1] + 1)], axis=1)
@@ -449,7 +449,8 @@ class Simulation(object):
             arr234[:,12] += 1
             arr15[:,12] += 1
 
-            # here is where agegrp should be updated but I'm not gonna do it since
+            # here is where agegrp should be updated but I'm not 
+            # going to do it just yet since
             # we don't write it out and it doesn't matter in the simulation
 
             # update inital age
@@ -459,9 +460,9 @@ class Simulation(object):
             arr234[:,10] = (arr234[:,9] == 0) * arr234[:,18] * (arr234[:,12] >= 18)
             arr234[:,9] = arr234[:,18] * (arr234[:,12] < 18)
         
-            # start by writing out the appropriate data
 
         # write data one last time for the final year
+        # this code is copied from earlier in this file
         for black in [0,1]:
             for pov in [0,1]:
                 for smoking_state in [1,2,3,4,5,6]: 

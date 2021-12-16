@@ -31,11 +31,11 @@ def main(args):
                     beta234=beta234_arr, 
                     beta15=beta15_arr, 
                     life_tables=life_table_dict,
-                    save_xl_fname='simulation_status_quo',
-                    save_np_fname='simulation_status_quo')
+                    save_xl_fname='transitions',
+                    save_np_fname='transitions',
+                    save_transition_np_fname='transitions')
 
         s.simulate()
-        del s
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Specify simulation parameters')

@@ -591,6 +591,8 @@ class Simulation(object):
 
             arr234[:,18] = np.ones(arr234.shape[0])
 
+            # TODO: update year_last_smoked variable
+
             # update agegrp and age params as needed
 
             arr234[:,12] += 1

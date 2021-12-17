@@ -137,8 +137,6 @@ class Simulation(object):
         # another for state {1,5} called arr15
         # another for state 6 = death called arr6
 
-        # print("initial count:", np.sum(pop_arr[:,8])) # 188430785.536...
-
         arr234 = np.asarray([row for row in pop_arr 
                   if (row[4] == 2 or row[4] == 3 or row[4] == 4
                   or row[3] == 2 or row[3] == 3 or row[3] == 4)], dtype=np.float64)
@@ -146,10 +144,6 @@ class Simulation(object):
                   if (row[4] == 1 or row[4] == 5)
                   and (row[3] == 1 or row[3] == 5)], dtype=np.float64)
         arr6 = None
-
-        # print(pop_arr.shape) # (19212, 11)
-        # print(arr234.shape) # (9533, 11)
-        # print(arr15.shape) # (9679, 11)
 
         # futher processing to make things into indicators that I need
         # desired indexing is above
@@ -215,19 +209,12 @@ class Simulation(object):
 
         # now the population arrays are in the right format for matrix mult
 
-        # test = np.sum(arr234[:,1:9], axis=1)
-        # print(test[test < 1])
-        # quit()
-
         # TODO: For experimentation, lets keep only the people that are in 
         # a specified group
 
 
 
         # next step is to format the betas
-
-        # print(self.beta234.dtype) # float64
-        # print(self.beta15.dtype) # float64
 
         beta_234_aug = np.concatenate([
             self.beta234[:,:5],
@@ -248,29 +235,12 @@ class Simulation(object):
         beta_234_aug = np.transpose(beta_234_aug)
         beta_15_aug = np.transpose(beta_15_aug)
 
-        # print(beta_234_aug.shape) # (19,3)
-        # print(beta_15_aug.shape) # (19,4)
-
         assert(beta_15_aug.shape[0] == arr15.shape[1])
 
-        # Next step is to loop over years, updating the pop each year
-        # and writing out the stats
-        # cy means current year
-        for cy in range(self.end_year - self.start_year):
 
-            """
-            Main loop and crux of the program.
-            Steps:
-                1. write data to appropriate structures to be saved for later analysis
-                2. kill people according to life tables
-                3. update people's smoking statuses
-                    a. make sure to take care of hassmoked flag
-                4. update people's ages
-            """
-
-            # start by writing out the appropriate data
+        # define a function for writing out data for a current year      
+        def write_data(cy, arr234, arr15, arr6, out_list, out_np):
             # probably a way to do this without loops but idk
-            # TODO: make this a function of arr234, arr15, arr6, and out arrays
             for black in [0,1]:
                 for pov in [1,2]:
                     for smoking_state in [1,2,3,4,5,6]: 
@@ -357,7 +327,7 @@ class Simulation(object):
                             )
                         
                         # write list and numpy arr
-                        self.output_list_to_df.append([
+                        out_list.append([
                             cy + self.start_year,
                             black,
                             pov,
@@ -365,8 +335,29 @@ class Simulation(object):
                             count,
                         ])
 
-                        self.output_numpy[cy,black,pov - 1,smoking_state - 1] = count
-            
+                        out_np[cy,black,pov - 1,smoking_state - 1] = count
+
+
+
+        # Next step is to loop over years, updating the pop each year
+        # and writing out the stats
+        # cy means current year
+        for cy in range(self.end_year - self.start_year):
+
+            """
+            Main loop and crux of the program.
+            Steps:
+                1. write data to appropriate structures to be saved for later analysis
+                2. kill people according to life tables
+                3. update people's smoking statuses
+                    a. make sure to take care of hassmoked flag
+                4. update people's ages
+            """
+
+            # start by writing out the appropriate data
+
+            write_data(cy, arr234, arr15, arr6, self.output_list_to_df, self.output_numpy)
+
             # ok writing the output stats is done
             # time to actually update the population
 
@@ -517,18 +508,6 @@ class Simulation(object):
             arr234[:,5:9] = new_states234
             arr15[:,5:9] = new_states15
             
-            #check that states are valid
-            # test = np.sum(arr234[:,1:9], axis=1)
-            # print(test[test != 1])
-
-            # assert(np.all(np.logical_or(np.sum(arr234[:,1:5], axis=1) == 1, np.sum(arr234[:,1:5], axis=1) == 0)))
-            # assert(np.all(np.logical_or(np.sum(arr234[:,5:9], axis=1) == 1, np.sum(arr234[:,5:9], axis=1) == 0)))
-            # assert(np.all(np.logical_or(np.sum(arr15[:,1:5], axis=1) == 1, np.sum(arr15[:,1:5], axis=1) == 0)))
-            # assert(np.all(np.logical_or(np.sum(arr15[:,5:9], axis=1) == 1, np.sum(arr15[:,5:9], axis=1) == 0)))
-
-            # assert(np.all(arr234[:,1] == 0))
-            # assert(np.all(arr234[:,5] == 0))
-
             # record the state transition numbers
             # we can calculate the number who died also from these numbers
             # Here's what the list means
@@ -619,62 +598,8 @@ class Simulation(object):
             # endfor 
 
         # write data one last time for the final year
-        # this code is copied from earlier in this file
-        for black in [0,1]:
-            for pov in [1,2]:
-                for smoking_state in [1,2,3,4,5,6]: 
-                    # determine count of people which fit the descriptors
-                    # note smoking state == 6 means dead
-                    count = None
-                    if smoking_state == 5:
-                        count = np.sum(
-                            (arr234[:,11] == black) *
-                            (arr234[:,14] == pov) *
-                            (arr234[:,4 + 1] == 0) * 
-                            (arr234[:,4 + 2] == 0) * 
-                            (arr234[:,4 + 3] == 0) * 
-                            (arr234[:,4 + 4] == 0) * 
-                            (arr234[:,16])
-                        )
-                        count += np.sum(
-                            (arr15[:,11] == black) *
-                            (arr15[:,14] == pov) *
-                            (arr15[:,4 + 1] == 0) * 
-                            (arr15[:,4 + 2] == 0) * 
-                            (arr15[:,4 + 3] == 0) * 
-                            (arr15[:,4 + 4] == 0) * 
-                            (arr15[:,16])
-                        )
-                    elif smoking_state == 6 and arr6 is not None:
-                        count = np.sum(
-                            (arr6[:,11] == black) *
-                            (arr6[:,14] == pov) *
-                            (arr6[:,16])
-                        )
-                    else:
-                        count = np.sum(
-                            (arr234[:,11] == black) *
-                            (arr234[:,14] == pov) *
-                            (arr234[:,4 + smoking_state] == 1) * 
-                            (arr234[:,16])
-                        )
-                        count += np.sum(
-                            (arr15[:,11] == black) *
-                            (arr15[:,14] == pov) *
-                            (arr15[:,4 + smoking_state] == 1) * 
-                            (arr15[:,16])
-                        )
 
-                    # write list and numpy arr
-                    self.output_list_to_df.append([
-                        self.end_year,
-                        black,
-                        pov,
-                        smoking_state,
-                        count,
-                    ])
-
-                    self.output_numpy[self.end_year - self.start_year,black,pov - 1,smoking_state - 1] = count
+        write_data(self.end_year - self.start_year, arr234, arr15, arr6, self.output_list_to_df, self.output_numpy)
 
         # writeout the results of the simulation to disk
 

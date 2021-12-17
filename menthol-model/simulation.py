@@ -19,7 +19,7 @@ class Simulation(object):
     There are two logistic regression models:
         one for people in state 2,3,4 (former smoker, nonmenthol, menthol)
             in wave 2 OR wave 3
-        another for people in state 1,5 (nonsmoker, ecig only)
+        another for people in state 1,5 (nonsmoker, ecig)
             in wave 2 AND wave 3
 
     Need to transform ints into indicators (booleans)
@@ -110,6 +110,7 @@ class Simulation(object):
         self.output_numpy = np.zeros((end_year - start_year + 1, 2, 2, 6))
         self.now_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
         self.menthol_ban = menthol_ban
+        self.age_last_smoked_for_ia1 = 17
         
         return
     
@@ -176,46 +177,58 @@ class Simulation(object):
                 (s3 == 4)[:,np.newaxis],
                 (ia == 1)[:,np.newaxis],
                 (ia == 2)[:,np.newaxis],
-                a[:,2][:,np.newaxis],
-                a[:,9][:,np.newaxis],
+                a[:,2][:,np.newaxis], # black
+                a[:,9][:,np.newaxis], # age
                 a[:,1][:,np.newaxis] - 1, # change sex from {1,2} to {0,1}
                 a[:,6][:,np.newaxis],  # dont change poverty from {1,2} to {0,1}
-                a[:,10][:,np.newaxis],
-                a[:,8][:,np.newaxis],
-                a[:,0][:,np.newaxis],
+                a[:,10][:,np.newaxis], # start age
+                a[:,8][:,np.newaxis], # weight
+                a[:,0][:,np.newaxis], # agegrp
                 np.zeros((a.shape[0],1)), # hassmoked flag
-                -1 * np.ones((a.shape[0],1)), # year last smoked
+                -1 * np.ones((a.shape[0],1)), # year last smoked initialize to -1 for nonsmokers
             ], axis=1, dtype=np.float64)
             return a
 
         arr234 = path_to_indicator_form(arr234)
         arr15 = path_to_indicator_form(arr15)
 
+        # TODO: put this stuff in the path_to_indicator_form function
 
         arr234[:,18] = np.ones((arr234.shape[0])) # hassmoked flag = 1 for people in 234
+
         # for people whose last state is 3,4 the year last smoked is self.start_year - 1
-        arr234[np.logical_or(arr234[:,3] == 1,arr234[:,4] == 1)][19] = self.start_year - 1
+        arr234[np.logical_or(arr234[:,3],arr234[:,4]),19] = self.start_year - 1
+
         # for people currently in groups 3,4 the year last smoked is self.start_year
-        arr234[np.logical_or(arr234[:,7] == 1,arr234[:,8] == 1)][19] = self.start_year
-        # TODO: initialization strategy for those in groups 2,5
-        arr234[np.logical_and(
-            np.logical_or(arr234[:,6] == 1,
-                          np.sum(arr234[:,5:9], axis=1) == 0
-                          ),
-            np.logical_or(arr234[:,2] == 1,
-                          np.sum(arr234[:,1:5], axis=1) == 0
-                          ),
-        )][19] = self.start_year - 5
+        arr234[np.logical_or(arr234[:,7],arr234[:,8]),19] = self.start_year
 
+        # for people whose last state is 5, the year last smoked is self.start_year - 1
+        arr234[np.sum(arr234[:,1:5], axis=1) == 0,19] = self.start_year
+        arr15[np.sum(arr15[:,1:5], axis=1) == 0,19] = self.start_year
+
+        # for people whose current state is 5, the year last smoked is self.start_year
+        arr234[np.sum(arr234[:,5:9], axis=1) == 0,19] = self.start_year
+        arr15[np.sum(arr15[:,5:9], axis=1) == 0,19] = self.start_year
+
+        # for people in group 2 last state AND this state
+        # if initialization age is 1 then year last smoked is self.year_last_smoked_for_ia1
+        ind = np.logical_and(arr234[:,2], arr234[:,6], arr234[:,9]).astype(np.bool_)
+        arr234[ind,19] = self.age_last_smoked_for_ia1 + self.start_year - arr234[ind, 12]
+
+        # if initialization age is 2 then year last smoked is randomly chosen between start_age and current age
+        ind = np.logical_and(arr234[:,2], arr234[:,6], arr234[:,10]).astype(np.bool_)
+        age_started = np.maximum(18, arr234[ind,15]) # use starting age if available, otherwise use 18
+        # print(arr234[ind][arr234[ind][:,15] == 0][0])
+        # assert(np.all(arr234[ind, 15])) # check all "former smokers" have nonzero start age -- returns 0 which is interesting
+        to_multiply_rand = arr234[ind, 12] - age_started + 1 - 1e-8
+        to_add_after_multiply = self.start_year - arr234[ind, 12] - 0.5 + 1e-8
+        arr234[ind ,19] = np.round(np.random.rand(np.sum(ind)) * to_multiply_rand + to_add_after_multiply)
+                            
         # now the population arrays are in the right format for matrix mult
-
         # TODO: For experimentation, lets keep only the people that are in 
         # a specified group
 
-
-
         # next step is to format the betas
-
         beta_234_aug = np.concatenate([
             self.beta234[:,:5],
             np.zeros((len(self.beta234), 1)),
@@ -235,11 +248,12 @@ class Simulation(object):
         beta_234_aug = np.transpose(beta_234_aug)
         beta_15_aug = np.transpose(beta_15_aug)
 
-        assert(beta_15_aug.shape[0] == arr15.shape[1])
-
-
         # define a function for writing out data for a current year      
         def write_data(cy, arr234, arr15, arr6, out_list, out_np):
+            """
+            Given the current year, arrays with the current state,
+            and output destination arrays, write data accordingly
+            """
             # probably a way to do this without loops but idk
             for black in [0,1]:
                 for pov in [1,2]:
@@ -337,8 +351,6 @@ class Simulation(object):
 
                         out_np[cy,black,pov - 1,smoking_state - 1] = count
 
-
-
         # Next step is to loop over years, updating the pop each year
         # and writing out the stats
         # cy means current year
@@ -358,8 +370,7 @@ class Simulation(object):
 
             write_data(cy, arr234, arr15, arr6, self.output_list_to_df, self.output_numpy)
 
-            # ok writing the output stats is done
-            # time to actually update the population
+            # time to update the population
 
             # TODO: insert a new cohort of 18yearolds
 
@@ -386,7 +397,7 @@ class Simulation(object):
             # people in arr235 randomly die
 
             chance = np.random.rand(len(arr234)).astype(np.float64)
-            arr234_ages = arr234[:,12].astype(np.int32)
+            arr234_ages = arr234[:, 12].astype(np.int32)
             arr234_ages = list(arr234_ages.clip(min=0, max = 100))
             arr234_sex = arr234[:, 13].astype(np.bool_) # True = Female, False = Male
 
@@ -408,7 +419,7 @@ class Simulation(object):
             # people in arr15 randomly die
 
             chance = np.random.rand(len(arr15)).astype(np.float64)
-            arr15_ages = arr15[:,12].astype(np.int32)
+            arr15_ages = arr15[:, 12].astype(np.int32)
             arr15_ages = list(arr15_ages.clip(min=0, max = 100))
             arr15_sex = arr15[:, 13].astype(np.bool_) # True = Female, False = Male
 
@@ -534,6 +545,7 @@ class Simulation(object):
             # 19 5->3
             # 20 5->4
             # 21 5->5
+
             if self.save_transition_np_fname is not None:
                 transition_numbers.append([
                     np.sum(arr15[:,16][np.logical_and(arr15[:,1], arr15[:,5])]),

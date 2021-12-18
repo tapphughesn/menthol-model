@@ -498,6 +498,7 @@ class Simulation(object):
                 return arg_selection
 
             new_states234 = random_select_arg_multinomial(probs234)[:,:-1]
+            # print(new_states234.shape) # (9508, 3)
 
             # people are not going into state 1 (never smoker) from 234
             new_states234 = np.concatenate([ 
@@ -505,9 +506,12 @@ class Simulation(object):
                 new_states234,
             ], axis=1, dtype=np.float64)
 
-            staying_234 = np.sum(new_states234[:,1:], axis=1).astype(np.bool_)
+            # if all the elements in a row of new_states234 are 0, then they are going to state 5
+            # the first element of each row is 0
+            staying_234 = np.sum(new_states234[:,1:], axis=1).astype(np.bool_) 
 
             new_states15 = random_select_arg_multinomial(probs15)[:,:-1].astype(np.float64)
+            # leaving_15 is 1 for each row in new_states15 which has chosen to transition to 2, 3, or 4
             leaving_15 = np.sum(new_states15[:,1:], axis=1).astype(np.bool_)
 
             # move current states to last years states and
@@ -588,10 +592,19 @@ class Simulation(object):
             arr15 = np.concatenate([arr15, tmp_to_15], axis=0, dtype=np.float64)
 
             # update hassmoked flag
-
             arr234[:,18] = np.ones(arr234.shape[0])
 
-            # TODO: update year_last_smoked variable
+            # update year_last_smoked variable
+            # smokers currently in state 3,4 get their last year updated
+            arr234[np.logical_or(arr234[:,7],arr234[:,8]),19] = cy
+
+            # smokers currently in state 5 get their last year updated
+            arr234[np.sum(arr234[:,5:9], axis=1) == 0,19] = cy
+            arr15[np.sum(arr15[:,5:9], axis=1) == 0,19] = cy
+
+            # people who made the transition 1->2 get their last year updated
+            # this is after switching, so anybody who made that transition will be in arr234
+            arr234[np.logical_and(arr234[:,1], arr234[:,6]),19] = cy
 
             # update agegrp and age params as needed
 

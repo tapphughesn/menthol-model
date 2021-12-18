@@ -55,6 +55,8 @@ def main(args):
         new_life_table_dict[2017][1][1] = pd.read_excel("../../life_tables/2017/Female/life_table_2017_female.xlsx").to_numpy()[2:-1,1]
         new_life_table_dict[2018][1][1] = pd.read_excel("../../life_tables/2018/Females/life_table_2018_female.xlsx").to_numpy()[2:-1,1]
 
+        
+
 
 
     pop_file_name = "../../path_data/age_individual_October21_renamed.xlsx"

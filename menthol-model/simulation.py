@@ -92,8 +92,10 @@ class Simulation(object):
                  menthol_ban: bool=False):
         
         self.pop_df = pop_df
-        self.life_tables = life_tables # dict int (year), int(sex) -> array
-        self.end_year=end_year
+        self.life_tables = life_tables # dict int (year), int (sex) -> array
+        self.smoking_prevalences = smoking_prevalences # dict int (year) -> array
+        self.current_smoker_RR = current_smoker_RR # Relative Risk of all cause mortality vs nonsmokers
+        self.end_year=end_year # Relative Risk of all cause mortality vs current smokers
         self.start_year=start_year
         self.beta234 = np.asarray(beta234, dtype=np.float64) # arr
         self.beta15 = np.asarray(beta15, dtype=np.float64) # arr
@@ -395,6 +397,13 @@ class Simulation(object):
             RR = % mortality smokers / % mortality nonsmokers
             average death rate = (% mortality smokers * % smokers) + (% mortality nonsmokers * % nonsmokers)
             We have prevalence of smoking for each age, ages 55-90
+
+            I found the following equations for death rates:
+
+            smoker_deathrate = average_deathrate / (proportion_smokers + (1 - proportion_smokers) / current_smoker_RR)
+            nonsmoker_deathrate = average_deathrate / (proportion_smokers * current_smoker_RR + (1 - proportion_smokers))
+            former_smoker_deathrate = average_deathrate * former_smoker_RR / (proportion_smokers + (1 - proportion_smokers) / current_smoker_RR)
+
             """
 
             # people in arr235 randomly die

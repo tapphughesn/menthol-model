@@ -30,9 +30,10 @@ def main(args):
     csvnsRR = pd.read_excel(os.path.join("..", "..", "smoking_prevalence", "current_smoker_mortality_vs_nonsmoker.xlsx")).to_numpy()[:,1:]
     fsvcsRR = pd.read_excel(os.path.join("..", "..", "smoking_prevalence", "former_smoker_mortality_vs_current_smoker.xlsx")).to_numpy()[:,1:]
 
-    print(csvnsRR)
-    print(fsvcsRR)
-    quit()
+    # print(smoking_prevalence_dict[2016].shape)
+    # print(csvnsRR)
+    # print(fsvcsRR)
+    # quit()
 
     # Get population data
     pop_file_name = "../../path_data/age_individual_October21_renamed.xlsx"
@@ -49,9 +50,13 @@ def main(args):
                     beta234=beta234_arr, 
                     beta15=beta15_arr, 
                     life_tables=life_table_dict,
+                    smoking_prevalences=smoking_prevalence_dict,
+                    current_smoker_RR=csvnsRR,
+                    former_smoker_RR=fsvcsRR,
                     save_xl_fname='transitions',
                     save_np_fname='transitions',
-                    save_transition_np_fname='transitions')
+                    save_transition_np_fname='transitions',
+                    )
 
         s.simulate()
 

@@ -80,9 +80,9 @@ class Simulation(object):
                  beta234: np.ndarray, 
                  beta15: np.ndarray, 
                  life_tables: dict,
-                 smoking_prevalences: dict,
-                 current_smoker_RR: np.ndarray,
-                 former_smoker_RR: np.ndarray,
+                 smoking_prevalences: dict=None,
+                 current_smoker_RR: np.ndarray=None,
+                 former_smoker_RR: np.ndarray=None,
                  save_xl_fname: str=None, 
                  save_np_fname: str=None, 
                  save_transition_np_fname: str=None,
@@ -95,7 +95,8 @@ class Simulation(object):
         self.life_tables = life_tables # dict int (year), int (sex) -> array
         self.smoking_prevalences = smoking_prevalences # dict int (year) -> array
         self.current_smoker_RR = current_smoker_RR # Relative Risk of all cause mortality vs nonsmokers
-        self.end_year=end_year # Relative Risk of all cause mortality vs current smokers
+        self.former_smoker_RR = former_smoker_RR # Relative Risk of all cause mortality vs current smokers
+        self.end_year=end_year 
         self.start_year=start_year
         self.beta234 = np.asarray(beta234, dtype=np.float64) # arr
         self.beta15 = np.asarray(beta15, dtype=np.float64) # arr
@@ -116,7 +117,12 @@ class Simulation(object):
         self.now_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
         self.menthol_ban = menthol_ban
         self.age_last_smoked_for_ia1 = 17
-        
+
+        self.use_adjusted_death_rates = False
+        self.use_adjusted_death_rates = self.current_smoker_RR is not None \
+        and self.former_smoker_RR is not None \
+        and self.smoking_prevalences is not None
+
         return
     
     def simulate(self):
@@ -381,40 +387,94 @@ class Simulation(object):
 
             # continue by randomly determining if people
             # will die this year
+            # first we will define some variables to use later
             
             # male = 0
             # female = 1
 
             life_table_year = min(self.start_year + cy, 2018)
             life_table_year = max(life_table_year, 2016)
-            life_table_arr = np.concatenate([
-                self.life_tables[life_table_year][0].astype(np.float64)[np.newaxis, :],
-                self.life_tables[life_table_year][1].astype(np.float64)[np.newaxis, :],
-            ], axis=0, dtype=np.float64)
 
-            """
-            Need to take into account relative risk of death for smokers (state 3,4) and nonsmokers (state 1,2,5)
-            RR = % mortality smokers / % mortality nonsmokers
-            average death rate = (% mortality smokers * % smokers) + (% mortality nonsmokers * % nonsmokers)
-            We have prevalence of smoking for each age, ages 55-90
+            adr_male = self.life_tables[life_table_year][0].astype(np.float64)
+            adr_female = self.life_tables[life_table_year][1].astype(np.float64)
 
-            I found the following equations for death rates:
+            arr234_death_chances_male = None
+            arr234_death_chances_female = None
 
-            smoker_deathrate = average_deathrate / (proportion_smokers + (1 - proportion_smokers) / current_smoker_RR)
-            nonsmoker_deathrate = average_deathrate / (proportion_smokers * current_smoker_RR + (1 - proportion_smokers))
-            former_smoker_deathrate = average_deathrate * former_smoker_RR / (proportion_smokers + (1 - proportion_smokers) / current_smoker_RR)
+            arr15_death_chances_male = None
+            arr15_death_chances_female = None
 
-            """
-
-            # people in arr235 randomly die
-
-            chance = np.random.rand(len(arr234)).astype(np.float64)
             arr234_ages = arr234[:, 12].astype(np.int32)
             arr234_ages = list(arr234_ages.clip(min=0, max = 100))
             arr234_sex = arr234[:, 13].astype(np.bool_) # True = Female, False = Male
 
-            deaths_male = life_table_arr[0][arr234_ages] > chance # bool arr
-            deaths_female = life_table_arr[1][arr234_ages] > chance # bool arr
+            arr15_ages = arr15[:, 12].astype(np.int32)
+            arr15_ages = list(arr15_ages.clip(min=0, max = 100))
+            arr15_sex = arr15[:, 13].astype(np.bool_) # True = Female, False = Male
+
+
+            if self.use_adjusted_death_rates:
+                """
+                Need to take into account relative risk of death for smokers (state 3,4) and nonsmokers (state 1,2,5)
+                RR = % mortality smokers / % mortality nonsmokers
+                average death rate = (% mortality smokers * % smokers) + (% mortality nonsmokers * % nonsmokers)
+                We have prevalence of smoking for each age, ages 55-90
+
+                I found the following equations for death rates:
+
+                smoker_deathrate = average_deathrate / (proportion_smokers + (1 - proportion_smokers) / current_smoker_RR)
+                nonsmoker_deathrate = average_deathrate / (proportion_smokers * current_smoker_RR + (1 - proportion_smokers))
+                former_smoker_deathrate = average_deathrate * former_smoker_RR / (proportion_smokers + (1 - proportion_smokers) / current_smoker_RR)
+                """
+
+                # first work on arr234
+
+                proportion_smoking = self.smoking_prevalences[life_table_year] / 100
+
+                # here I am assuming prevalence of smoking is 0 in ages 90-100
+                proportion_smoking = np.concatenate([proportion_smoking, np.zeros(10)])
+                RR_indices_array = np.array([0] * 5 + [1] * 5 + [2] * 5 + [3] * 5 + [4] * 5 + [5] * 5 + [6] * 16)
+
+                csrr_male_55plus = self.current_smoker_RR[:,0]
+                csrr_female_55plus = self.current_smoker_RR[:,1]
+
+                fsrr_male_55plus = self.former_smoker_RR[:,0]
+                fsrr_female_55plus = self.former_smoker_RR[:,1]
+
+                arr234_death_chances_male = adr_male[arr234_ages] 
+                arr234_death_chances_female = adr_female[arr234_ages]
+
+                arr234_smoker_mask = arr234[:,7] + arr234[:,8] + (np.sum(arr234[:,5:9], axis=1) == 0)
+                arr234_smoker_mask = arr234_smoker_mask.astype(np.bool_)
+                # arr234_nonsmoker_mask = arr234[:,5].astype(np.bool_)
+                arr234_formersmoker_mask = arr234[:,6].astype(np.bool_)
+
+                # smokers
+                arr234_smoker_55plus_ages = list(arr234[np.logical_and(arr234_smoker_mask, arr234[:,12] >= 55).astype(np.bool_)].astype(np.int32).clip(min=0, max=100) - 55)
+                arr234_death_chances_male[arr234_smoker_mask] = arr234_death_chances_male[arr234_smoker_mask] / (proportion_smoking[arr234_smoker_55plus_ages] + (1 - proportion_smoking[arr234_smoker_55plus_ages]) / csrr_male_55plus[list(RR_indices_array[arr234_smoker_55plus_ages])])
+                arr234_death_chances_female[arr234_smoker_mask] = arr234_death_chances_female[arr234_smoker_mask] / (proportion_smoking[arr234_smoker_55plus_ages] + (1 - proportion_smoking[arr234_smoker_55plus_ages]) / csrr_female_55plus[list(RR_indices_array[arr234_smoker_55plus_ages])])
+
+                # formersmokers
+                arr234_formersmoker_55plus_ages = list(arr234[np.logical_and(arr234_formersmoker_mask, arr234[:,12] >= 55)].astype(np.bool_).astype(np.int32).clip(min=0, max=100) - 55)
+                arr234_death_chances_male[arr234_formersmoker_mask] = fsrr_male_55plus[list(RR_indices_array[arr234_formersmoker_55plus_ages])] * arr234_death_chances_male[arr234_formersmoker_mask] / (proportion_smoking[arr234_formersmoker_55plus_ages] + (1 - proportion_smoking[arr234_formersmoker_55plus_ages]) / csrr_male_55plus[list(RR_indices_array[arr234_formersmoker_55plus_ages])])
+                arr234_death_chances_female[arr234_formersmoker_mask] = fsrr_female_55plus[list(RR_indices_array[arr234_formersmoker_55plus_ages])] * arr234_death_chances_female[arr234_formersmoker_mask] / (proportion_smoking[arr234_formersmoker_55plus_ages] + (1 - proportion_smoking[arr234_formersmoker_55plus_ages]) / csrr_female_55plus[list(RR_indices_array[arr234_formersmoker_55plus_ages])])
+
+                # nonsmokers
+                pass
+
+                # actually decide deaths
+                chance = np.random.rand(len(arr234)).astype(np.float64)
+
+            else:
+                print("Not using death rates adjusted for smokers, formersmokers, nonsmokers.")
+
+                arr234_death_chances_male = adr_male[arr234_ages] 
+                arr234_death_chances_female = adr_female[arr234_ages]
+
+            chance = np.random.rand(len(arr234)).astype(np.float64)
+
+            deaths_male = arr234_death_chances_male > chance # bool arr
+            deaths_female = arr234_death_chances_female > chance # bool arr
 
             deaths_all = np.logical_or(
                 np.logical_and(deaths_male, np.logical_not(arr234_sex)),
@@ -435,8 +495,8 @@ class Simulation(object):
             arr15_ages = list(arr15_ages.clip(min=0, max = 100))
             arr15_sex = arr15[:, 13].astype(np.bool_) # True = Female, False = Male
 
-            deaths_male = life_table_arr[0][arr15_ages] > chance # bool arr
-            deaths_female = life_table_arr[1][arr15_ages] > chance # bool arr
+            deaths_male = adr_male[arr15_ages] > chance # bool arr
+            deaths_female = adr_female[arr15_ages] > chance # bool arr
 
             deaths_all = np.logical_or(
                 np.logical_and(deaths_male, np.logical_not(arr15_sex)),

@@ -52,6 +52,7 @@ def main(args):
                     beta2345=beta2345_arr, 
                     beta1=beta1_arr, 
                     life_tables=life_table_dict,
+<<<<<<< HEAD
                     smoking_prevalences=smoking_prevalence_dict,
                     current_smoker_RR=csvnsRR,
                     former_smoker_RR=fsvcsRR,
@@ -59,6 +60,11 @@ def main(args):
                     save_np_fname='transitions',
                     save_transition_np_fname='transitions',
                     )
+=======
+                    save_xl_fname='transitions',
+                    save_np_fname='transitions',
+                    save_transition_np_fname='transitions')
+>>>>>>> 370f1bbab88447a1db8048fffb46c7388f62d2a8
 
         s.simulate()
 

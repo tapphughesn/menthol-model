@@ -104,8 +104,13 @@ class Simulation(object):
                  save_np_fname: str=None, 
                  save_transition_np_fname: str=None,
                  save_dir: str= '../../outputs/',
+<<<<<<< HEAD
                  end_year: int=2066, 
                  start_year: int=2016,
+=======
+                 end_year: int=2068, 
+                 start_year: int=2018,
+>>>>>>> 370f1bbab88447a1db8048fffb46c7388f62d2a8
                  menthol_ban: bool=False):
         
         self.pop_df = pop_df
@@ -162,9 +167,17 @@ class Simulation(object):
 
         # now we need to construct 3 arrays which get updated 
         # during the course of the simulation
+<<<<<<< HEAD
         # one for state {2,3,4} called arr2345
         # another for state {1,5} called arr1
         # another for state 6 = death called arr6
+=======
+        # one for state {2,3,4} called arr234
+        # another for state {1,5} called arr15
+        # another for state 6 = death called arr6
+
+        # print("initial count:", np.sum(pop_arr[:,8])) # 188430785.536...
+>>>>>>> 370f1bbab88447a1db8048fffb46c7388f62d2a8
 
         arr2345 = np.asarray([row for row in pop_arr 
                   if (row[4] == 2 or row[4] == 3 or row[4] == 4
@@ -217,10 +230,29 @@ class Simulation(object):
             ], axis=1, dtype=np.float64)
             return a
 
+<<<<<<< HEAD
         arr2345 = path_to_indicator_form(arr2345)
         arr1 = path_to_indicator_form(arr1)
 
         # TODO: put this stuff in the path_to_indicator_form function
+=======
+        arr234 = path_to_indicator_form(arr234)
+        arr234[:,-1] = np.ones((arr234.shape[0])) # hassmoked flag = 1 for people in 234
+        arr15 = path_to_indicator_form(arr15)
+
+        # now the population arrays are in the right format for matrix mult
+
+        # test = np.sum(arr234[:,1:9], axis=1)
+        # print(test[test < 1])
+        # quit()
+
+        # For experimentation, lets keep only the people that are in 
+        # a specified group
+
+
+
+        # next step is to format the betas
+>>>>>>> 370f1bbab88447a1db8048fffb46c7388f62d2a8
 
         arr2345[:,18] = np.ones((arr2345.shape[0])) # hassmoked flag = 1 for people in 2345
 
@@ -283,12 +315,14 @@ class Simulation(object):
             and output destination arrays, write data accordingly
             """
             # probably a way to do this without loops but idk
+            # TODO: make this a function of arr234, arr15, arr6, and out arrays
             for black in [0,1]:
                 for pov in [1,2]:
                     for smoking_state in [1,2,3,4,5,6]: 
                         # determine count of people which fit the descriptors
                         # note smoking state == 6 means dead
                         count = None
+<<<<<<< HEAD
                         if smoking_state == 5 and arr2345 is None and arr1 is None:
                             count = 0
                         elif smoking_state == 5 and arr2345 is None:
@@ -302,6 +336,31 @@ class Simulation(object):
                                 (arr1[:,16])
                             )
                         elif smoking_state == 5 and arr1 is None:
+=======
+                        if smoking_state == 5 and arr234 is None and arr15 is None:
+                            count = 0
+                        elif smoking_state == 5 and arr234 is None:
+                            count += np.sum(
+                                (arr15[:,11] == black) *
+                                (arr15[:,14] == pov) *
+                                (arr15[:,4 + 1] == 0) * 
+                                (arr15[:,4 + 2] == 0) * 
+                                (arr15[:,4 + 3] == 0) * 
+                                (arr15[:,4 + 4] == 0) * 
+                                (arr15[:,16])
+                            )
+                        elif smoking_state == 5 and arr15 is None:
+                            count = np.sum(
+                                (arr234[:,11] == black) *
+                                (arr234[:,14] == pov) *
+                                (arr234[:,4 + 1] == 0) * 
+                                (arr234[:,4 + 2] == 0) * 
+                                (arr234[:,4 + 3] == 0) * 
+                                (arr234[:,4 + 4] == 0) * 
+                                (arr234[:,16])
+                            )
+                        elif smoking_state == 5:
+>>>>>>> 370f1bbab88447a1db8048fffb46c7388f62d2a8
                             count = np.sum(
                                 (arr2345[:,11] == black) *
                                 (arr2345[:,14] == pov) *
@@ -338,6 +397,7 @@ class Simulation(object):
                             )
                         elif smoking_state == 6 and arr6 is None:
                             count = 0
+<<<<<<< HEAD
                         elif arr2345 is None and arr1 is None:
                             count = 0
                         elif arr1 is None:
@@ -353,6 +413,23 @@ class Simulation(object):
                                 (arr1[:,14] == pov) *
                                 (arr1[:,4 + smoking_state] == 1) * 
                                 (arr1[:,16])
+=======
+                        elif arr234 is None and arr15 is None:
+                            count = 0
+                        elif arr15 is None:
+                            count = np.sum(
+                                (arr234[:,11] == black) *
+                                (arr234[:,14] == pov) *
+                                (arr234[:,4 + smoking_state] == 1) * 
+                                (arr234[:,16])
+                            )
+                        elif arr234 is None:
+                            count += np.sum(
+                                (arr15[:,11] == black) *
+                                (arr15[:,14] == pov) *
+                                (arr15[:,4 + smoking_state] == 1) * 
+                                (arr15[:,16])
+>>>>>>> 370f1bbab88447a1db8048fffb46c7388f62d2a8
                             )
                         else:
                             count = np.sum(
@@ -377,6 +454,7 @@ class Simulation(object):
                             count,
                         ])
 
+<<<<<<< HEAD
                         out_np[cy,black,pov - 1,smoking_state - 1] = count
 
         # Next step is to loop over years, updating the pop each year
@@ -399,6 +477,12 @@ class Simulation(object):
             write_data(cy, arr2345, arr1, arr6, self.output_list_to_df, self.output_numpy)
 
             # time to update the population
+=======
+                        self.output_numpy[cy,black,pov,smoking_state - 1] = count
+            
+            # ok writing the output stats is done
+            # time to actually update the population
+>>>>>>> 370f1bbab88447a1db8048fffb46c7388f62d2a8
 
             # TODO: insert a new cohort of 18yearolds
 
@@ -589,22 +673,108 @@ class Simulation(object):
             new_states2345 = random_select_arg_multinomial(probs2345)[:,:-1]
             # print(new_states2345.shape) # (9508, 3)
 
+<<<<<<< HEAD
             # people are not going into state 1 (never smoker) from 2345
             new_states2345 = np.concatenate([ 
                 np.zeros((new_states2345.shape[0], 1)),
                 new_states2345,
+=======
+            # people are not going into state 1 (never smoker) from 234
+            new_states234 = np.concatenate([ 
+                np.zeros((new_states234.shape[0], 1)),
+                new_states234,
+>>>>>>> 370f1bbab88447a1db8048fffb46c7388f62d2a8
             ], axis=1, dtype=np.float64)
 
             # if all the elements in a row of new_states2345 are 0, then they are going to state 5
             # the first element of each row is 0
             staying_2345 = np.sum(new_states2345[:,1:], axis=1).astype(np.bool_) 
 
+<<<<<<< HEAD
             new_states1 = random_select_arg_multinomial(probs1)[:,:-1].astype(np.float64)
             # leaving_1 is 1 for each row in new_states1 which has chosen to transition to 2, 3, or 4
             leaving_1 = np.sum(new_states1[:,1:], axis=1).astype(np.bool_)
 
             # move current states to last years states and
             # the new states into the current states
+=======
+            # move current states to last years states and
+            # the new states into the current states
+
+            arr234[:,1:5] = arr234[:,5:9]
+            arr15[:,1:5] = arr15[:,5:9]
+
+            arr234[:,5:9] = new_states234
+            arr15[:,5:9] = new_states15
+            
+            #check that states are valid
+            # test = np.sum(arr234[:,1:9], axis=1)
+            # print(test[test != 1])
+
+            # assert(np.all(np.logical_or(np.sum(arr234[:,1:5], axis=1) == 1, np.sum(arr234[:,1:5], axis=1) == 0)))
+            # assert(np.all(np.logical_or(np.sum(arr234[:,5:9], axis=1) == 1, np.sum(arr234[:,5:9], axis=1) == 0)))
+            # assert(np.all(np.logical_or(np.sum(arr15[:,1:5], axis=1) == 1, np.sum(arr15[:,1:5], axis=1) == 0)))
+            # assert(np.all(np.logical_or(np.sum(arr15[:,5:9], axis=1) == 1, np.sum(arr15[:,5:9], axis=1) == 0)))
+
+            # assert(np.all(arr234[:,1] == 0))
+            # assert(np.all(arr234[:,5] == 0))
+
+            # record the state transition numbers
+            # we can calculate the number who died also from these numbers
+            # Here's what the list means
+            # list index | number of people in transition
+            # 0 1->1
+            # 1 1->2
+            # 2 1->3
+            # 3 1->4
+            # 4 1->5
+            # 5 2->2
+            # 6 2->3
+            # 7 2->4
+            # 8 2->5
+            # 9 3->2
+            # 10 3->3
+            # 11 3->4
+            # 12 3->5
+            # 13 4->2
+            # 14 4->3
+            # 15 4->4
+            # 16 4->5
+            # 17 5->1
+            # 18 5->2
+            # 19 5->3
+            # 20 5->4
+            # 21 5->5
+            if self.save_transition_np_fname is not None:
+                transition_numbers.append([
+                    np.sum(arr15[:,16][np.logical_and(arr15[:,1], arr15[:,5])]),
+                    np.sum(arr15[:,16][np.logical_and(arr15[:,1], arr15[:,6])]),
+                    np.sum(arr15[:,16][np.logical_and(arr15[:,1], arr15[:,7])]),
+                    np.sum(arr15[:,16][np.logical_and(arr15[:,1], arr15[:,8])]),
+                    np.sum(arr15[:,16][np.logical_and(arr15[:,1], np.sum(arr15[:,5:9], axis=1) == 0)]), #state 5 indicator not explictly tracked
+                    np.sum(arr234[:,16][np.logical_and(arr234[:,2], arr234[:,6])]),
+                    np.sum(arr234[:,16][np.logical_and(arr234[:,2], arr234[:,7])]),
+                    np.sum(arr234[:,16][np.logical_and(arr234[:,2], arr234[:,8])]),
+                    np.sum(arr234[:,16][np.logical_and(arr234[:,2], np.sum(arr234[:,5:9], axis=1) == 0)]), #state 5 indicator not explictly tracked
+                    np.sum(arr234[:,16][np.logical_and(arr234[:,3], arr234[:,6])]),
+                    np.sum(arr234[:,16][np.logical_and(arr234[:,3], arr234[:,7])]),
+                    np.sum(arr234[:,16][np.logical_and(arr234[:,3], arr234[:,8])]),
+                    np.sum(arr234[:,16][np.logical_and(arr234[:,3], np.sum(arr234[:,5:9], axis=1) == 0)]), #state 5 indicator not explictly tracked
+                    np.sum(arr234[:,16][np.logical_and(arr234[:,4], arr234[:,6])]),
+                    np.sum(arr234[:,16][np.logical_and(arr234[:,4], arr234[:,7])]),
+                    np.sum(arr234[:,16][np.logical_and(arr234[:,4], arr234[:,8])]),
+                    np.sum(arr234[:,16][np.logical_and(arr234[:,4], np.sum(arr234[:,5:9], axis=1) == 0)]), #state 5 indicator not explictly tracked
+                    np.sum(arr15[:,16][np.logical_and(np.sum(arr15[:,1:5], axis=1) == 0, arr15[:,5])]),
+                    np.sum(arr15[:,16][np.logical_and(np.sum(arr15[:,1:5], axis=1) == 0, arr15[:,6])]) + 
+                    np.sum(arr234[:,16][np.logical_and(np.sum(arr234[:,1:5], axis=1) == 0, arr234[:,6])]),
+                    np.sum(arr15[:,16][np.logical_and(np.sum(arr15[:,1:5], axis=1) == 0, arr15[:,7])]) +
+                    np.sum(arr234[:,16][np.logical_and(np.sum(arr234[:,1:5], axis=1) == 0, arr234[:,7])]),
+                    np.sum(arr15[:,16][np.logical_and(np.sum(arr15[:,1:5], axis=1) == 0, arr15[:,8])]) +
+                    np.sum(arr234[:,16][np.logical_and(np.sum(arr234[:,1:5], axis=1) == 0, arr234[:,8])]),
+                    np.sum(arr15[:,16][np.logical_and(np.sum(arr15[:,1:5], axis=1) == 0, np.sum(arr15[:,5:9], axis=1) == 0)]) +
+                    np.sum(arr234[:,16][np.logical_and(np.sum(arr234[:,1:5], axis=1) == 0, np.sum(arr234[:,5:9], axis=1) == 0)]), #state 5 indicator not explictly tracked
+                ])
+>>>>>>> 370f1bbab88447a1db8048fffb46c7388f62d2a8
 
             arr2345[:,1:5] = arr2345[:,5:9]
             arr1[:,1:5] = arr1[:,5:9]
@@ -708,8 +878,13 @@ class Simulation(object):
             # if ia=1 == 0 and hassmoked == 1 and age >= 18 then ia = 2
             # if hassmoked == 1 and age < 18 then ia = 1
 
+<<<<<<< HEAD
             arr2345[:,10] = (arr2345[:,9] == 0) * arr2345[:,18] * (arr2345[:,12] >= 18)
             arr2345[:,9] = arr2345[:,18] * (arr2345[:,12] < 18)
+=======
+            arr234[:,10] = (arr234[:,9] == 0) * arr234[:,18] * (arr234[:,12] >= 18)
+            arr234[:,9] = arr234[:,18] * (arr234[:,12] < 18)
+>>>>>>> 370f1bbab88447a1db8048fffb46c7388f62d2a8
 
             # endfor 
 

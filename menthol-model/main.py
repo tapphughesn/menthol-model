@@ -13,42 +13,44 @@ def main(args):
     life_table_dict[2016] = {}
     life_table_dict[2017] = {}
     life_table_dict[2018] = {}
-    life_table_dict[2016][0] = pd.read_excel("../../life_tables/2016/Males/life_table_2016_male.xlsx").to_numpy()[2:-1,1]
-    life_table_dict[2017][0] = pd.read_excel("../../life_tables/2017/Male/life_table_2017_male.xlsx").to_numpy()[2:-1,1]
-    life_table_dict[2018][0] = pd.read_excel("../../life_tables/2018/Males/life_table_2018_male.xlsx").to_numpy()[2:-1,1]
-    life_table_dict[2016][1] = pd.read_excel("../../life_tables/2016/Females/life_table_2016_female.xlsx").to_numpy()[2:-1,1]
-    life_table_dict[2017][1] = pd.read_excel("../../life_tables/2017/Female/life_table_2017_female.xlsx").to_numpy()[2:-1,1]
-    life_table_dict[2018][1] = pd.read_excel("../../life_tables/2018/Females/life_table_2018_female.xlsx").to_numpy()[2:-1,1]
+    life_table_dict[2016][0] = pd.read_excel(os.path.join("..","..","life_tables","2016","Males","life_table_2016_male.xlsx")).to_numpy()[2:-1,1]
+    life_table_dict[2017][0] = pd.read_excel(os.path.join("..","..","life_tables","2017","Males","life_table_2017_male.xlsx")).to_numpy()[2:-1,1]
+    life_table_dict[2018][0] = pd.read_excel(os.path.join("..","..","life_tables","2018","Males","life_table_2018_male.xlsx")).to_numpy()[2:-1,1]
+    life_table_dict[2016][1] = pd.read_excel(os.path.join("..","..","life_tables","2016","Females","life_table_2016_female.xlsx")).to_numpy()[2:-1,1]
+    life_table_dict[2017][1] = pd.read_excel(os.path.join("..","..","life_tables","2017","Females","life_table_2017_female.xlsx")).to_numpy()[2:-1,1]
+    life_table_dict[2018][1] = pd.read_excel(os.path.join("..","..","life_tables","2018","Females","life_table_2018_female.xlsx")).to_numpy()[2:-1,1]
 
-    # Get smoking prevalences by wave for ages 55-90
+    # Get smoking prevalences by age and sex
     smoking_prevalence_dict = {}
-    smoking_prevalence_dict[2016] = pd.read_excel(os.path.join("..", "..", "smoking_prevalence", "Wave345_age55up_smokers_SM Dec21.xlsx")).to_numpy()[:,3]
-    smoking_prevalence_dict[2017] = pd.read_excel(os.path.join("..", "..", "smoking_prevalence", "Wave345_age55up_smokers_SM Dec21.xlsx")).to_numpy()[:,6]
-    smoking_prevalence_dict[2018] = pd.read_excel(os.path.join("..", "..", "smoking_prevalence", "Wave345_age55up_smokers_SM Dec21.xlsx")).to_numpy()[:,9]
+    smoking_prevalence_dict[2016] = {}
+    smoking_prevalence_dict[2017] = {}
+    smoking_prevalence_dict[2018] = {}
+    smoking_prevalence_dict[2016][0] = pd.read_excel(os.path.join("..","..","smoking_prevalences_Feb9","Smoker_percentage16_M.xlsx")).to_numpy()[:,4::3]
+    smoking_prevalence_dict[2017][0] = pd.read_excel(os.path.join("..","..","smoking_prevalences_Feb9","Smoker_percentage17_M.xlsx")).to_numpy()[:,4::3]
+    smoking_prevalence_dict[2018][0] = pd.read_excel(os.path.join("..","..","smoking_prevalences_Feb9","Smoker_percentage18_M.xlsx")).to_numpy()[:,4::3]
+    smoking_prevalence_dict[2016][1] = pd.read_excel(os.path.join("..","..","smoking_prevalences_Feb9","Smoker_percentage16_F.xlsx")).to_numpy()[:,4::3]
+    smoking_prevalence_dict[2017][1] = pd.read_excel(os.path.join("..","..","smoking_prevalences_Feb9","Smoker_percentage17_F.xlsx")).to_numpy()[:,4::3]
+    smoking_prevalence_dict[2018][1] = pd.read_excel(os.path.join("..","..","smoking_prevalences_Feb9","Smoker_percentage18_F.xlsx")).to_numpy()[:,4::3]
 
     # Get Releative Risks for current smokers vs nonsmoker and former smoker vs current smoker
+    # According to a published review
     csvnsRR = pd.read_excel(os.path.join("..", "..", "smoking_prevalence", "current_smoker_mortality_vs_nonsmoker.xlsx")).to_numpy()[:,1:]
     fsvcsRR = pd.read_excel(os.path.join("..", "..", "smoking_prevalence", "former_smoker_mortality_vs_current_smoker.xlsx")).to_numpy()[:,1:]
 
-    # print(smoking_prevalence_dict[2016].shape)
-    # print(csvnsRR)
-    # print(fsvcsRR)
-    # quit()
-
     # Get population data
-    pop_file_name = "../../path_data/age_individual_October21_renamed.xlsx"
+    pop_file_name = os.path.join("..","..","population_files_Feb8","population_file_sent_Feb8.xlsx")
     pop_df = pd.read_excel(pop_file_name)
 
     # Get logistic regression betas
-    beta234_f = "../../beta_estimates/beta_estimates_234.xlsx"
-    beta15_f = "../../beta_estimates/beta_estimates_15.xlsx"
-    beta234_arr = pd.read_excel(beta234_f).to_numpy()[:,2:]
-    beta15_arr = pd.read_excel(beta15_f).to_numpy()[:,2:]
+    beta2345_f = os.path.join("..","..","Output_SM","Betas","Beta_Estimates_2345.xlsx")
+    beta1_f = os.path.join("..","..","Output_SM","Betas","Beta_Estimates_1.xlsx")
+    beta2345_arr = pd.read_excel(beta2345_f).to_numpy()[:,2:]
+    beta1_arr = pd.read_excel(beta1_f).to_numpy()[:,2:]
 
     for i in range(args.number_replications):
         s = Simulation(pop_df=pop_df, 
-                    beta234=beta234_arr, 
-                    beta15=beta15_arr, 
+                    beta2345=beta2345_arr, 
+                    beta1=beta1_arr, 
                     life_tables=life_table_dict,
                     smoking_prevalences=smoking_prevalence_dict,
                     current_smoker_RR=csvnsRR,

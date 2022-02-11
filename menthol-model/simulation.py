@@ -167,11 +167,10 @@ class Simulation(object):
         # another for state 6 = death called arr6
 
         arr2345 = np.asarray([row for row in pop_arr 
-                  if (row[4] == 2 or row[4] == 3 or row[4] == 4
-                  or row[3] == 2 or row[3] == 3 or row[3] == 4)], dtype=np.float64)
+                  if (row[4] == 2 or row[4] == 3 or row[4] == 4 or row[4] == 5
+                  or row[3] == 2 or row[3] == 3 or row[3] == 4 or row[3] == 5)], dtype=np.float64)
         arr1 = np.asarray([row for row in pop_arr 
-                  if (row[4] == 1 or row[4] == 5)
-                  and (row[3] == 1 or row[3] == 5)], dtype=np.float64)
+                  if (row[4] == 1 and row[3] == 1)], dtype=np.float64)
         arr6 = None
 
         # futher processing to make things into indicators that I need
@@ -199,7 +198,6 @@ class Simulation(object):
                 (s2 == 2)[:,np.newaxis],
                 (s2 == 3)[:,np.newaxis],
                 (s2 == 4)[:,np.newaxis],
-                (s3 == 1)[:,np.newaxis],
                 (s3 == 2)[:,np.newaxis],
                 (s3 == 3)[:,np.newaxis],
                 (s3 == 4)[:,np.newaxis],
@@ -208,11 +206,9 @@ class Simulation(object):
                 a[:,2][:,np.newaxis], # black
                 a[:,9][:,np.newaxis], # age
                 a[:,1][:,np.newaxis] - 1, # change sex from {1,2} to {0,1}
-                a[:,6][:,np.newaxis],  # dont change poverty from {1,2} to {0,1}
+                a[:,6][:,np.newaxis],  # poverty is already {0,1} now, not {1,2} like before
                 a[:,10][:,np.newaxis], # start age
                 a[:,8][:,np.newaxis], # weight
-                a[:,0][:,np.newaxis], # agegrp
-                np.zeros((a.shape[0],1)), # hassmoked flag
                 -1 * np.ones((a.shape[0],1)), # year last smoked initialize to -1 for nonsmokers
             ], axis=1, dtype=np.float64)
             return a
@@ -221,36 +217,32 @@ class Simulation(object):
         arr1 = path_to_indicator_form(arr1)
 
         # TODO: put this stuff in the path_to_indicator_form function
-
-        arr2345[:,18] = np.ones((arr2345.shape[0])) # hassmoked flag = 1 for people in 2345
+        # Here we figure out the year_last_smoked variable for all cases
 
         # for people whose last state is 3,4 the year last smoked is self.start_year - 1
-        arr2345[np.logical_or(arr2345[:,3],arr2345[:,4]),19] = self.start_year - 1
+        arr2345[np.logical_or(arr2345[:,3],arr2345[:,4]),16] = self.start_year - 1
 
         # for people currently in groups 3,4 the year last smoked is self.start_year
-        arr2345[np.logical_or(arr2345[:,7],arr2345[:,8]),19] = self.start_year
+        arr2345[np.logical_or(arr2345[:,6],arr2345[:,7]),16] = self.start_year
 
         # for people whose last state is 5, the year last smoked is self.start_year - 1
-        arr2345[np.sum(arr2345[:,1:5], axis=1) == 0,19] = self.start_year
-        arr1[np.sum(arr1[:,1:5], axis=1) == 0,19] = self.start_year
+        # we are treating ecig users the same as smokers here
+        arr2345[np.sum(arr2345[:,1:5], axis=1) == 0,16] = self.start_year
 
         # for people whose current state is 5, the year last smoked is self.start_year
-        arr2345[np.sum(arr2345[:,5:9], axis=1) == 0,19] = self.start_year
-        arr1[np.sum(arr1[:,5:9], axis=1) == 0,19] = self.start_year
+        arr2345[np.sum(arr2345[:,5:8], axis=1) == 0,16] = self.start_year
 
         # for people in group 2 last state AND this state
-        # if initialization age is 1 then year last smoked is self.year_last_smoked_for_ia1
-        ind = np.logical_and(arr2345[:,2], arr2345[:,6], arr2345[:,9]).astype(np.bool_)
-        arr2345[ind,19] = self.age_last_smoked_for_ia1 + self.start_year - arr2345[ind, 12]
+        # if initialization age is 1 then year last smoked is self.year_last_smoked_for_ia1 + self.start_year - age
+        ind = np.logical_and(arr2345[:,2], arr2345[:,5], arr2345[:,8]).astype(np.bool_)
+        arr2345[ind,16] = self.age_last_smoked_for_ia1 + self.start_year - arr2345[ind, 11]
 
-        # if initialization age is 2 then year last smoked is randomly chosen between start_age and current age
-        ind = np.logical_and(arr2345[:,2], arr2345[:,6], arr2345[:,10]).astype(np.bool_)
-        age_started = np.maximum(18, arr2345[ind,1]) # use starting age if available, otherwise use 18
-        # print(arr2345[ind][arr2345[ind][:,1] == 0][0])
-        # assert(np.all(arr2345[ind, 1])) # check all "former smokers" have nonzero start age -- returns 0 which is interesting
-        to_multiply_rand = arr2345[ind, 12] - age_started + 1 - 1e-8
-        to_add_after_multiply = self.start_year - arr2345[ind, 12] - 0.5 + 1e-8
-        arr2345[ind ,19] = np.round(np.random.rand(np.sum(ind)) * to_multiply_rand + to_add_after_multiply)
+        # if initialization age is 2 for former smokers then year last smoked is randomly chosen between start_age and current age
+        ind = np.logical_and(arr2345[:,2], arr2345[:,5], arr2345[:,9]).astype(np.bool_)
+        age_started = np.maximum(18, arr2345[ind,14]) # use starting age if available, otherwise use 18
+        to_multiply_rand = arr2345[ind, 11] - age_started + 1 - 1e-8
+        to_add_after_multiply = self.start_year - arr2345[ind, 11] - 0.5 + 1e-8
+        arr2345[ind ,16] = np.round(np.random.rand(np.sum(ind)) * to_multiply_rand + to_add_after_multiply)
                             
         # now the population arrays are in the right format for matrix mult
         # TODO: For experimentation, lets keep only the people that are in 
@@ -258,19 +250,15 @@ class Simulation(object):
 
         # next step is to format the betas
         beta_2345_aug = np.concatenate([
-            self.beta2345[:,:5],
-            np.zeros((len(self.beta2345), 1)),
-            self.beta2345[:,5:],
-            np.zeros((len(self.beta2345), 5)),
+            self.beta2345,
+            np.zeros((len(self.beta2345), 3)),
         ], axis=1, dtype=np.float64)
 
         beta_1_aug = np.concatenate([
-            self.beta1[:,:2],
+            self.beta1[:,0][:,np.newaxis],
+            np.zeros((len(self.beta1), 9)),
+            self.beta1[:,1:],
             np.zeros((len(self.beta1), 3)),
-            self.beta1[:,2][:,np.newaxis],
-            np.zeros((len(self.beta1), 3)),
-            self.beta1[:,3:],
-            np.zeros((len(self.beta1), 5)),
         ], axis=1, dtype=np.float64)
 
         beta_2345_aug = np.transpose(beta_2345_aug)
@@ -283,9 +271,8 @@ class Simulation(object):
             and output destination arrays, write data accordingly
             """
             # probably a way to do this without loops but idk
-            # TODO: make this a function of arr234, arr15, arr6, and out arrays
             for black in [0,1]:
-                for pov in [1,2]:
+                for pov in [0,1]:
                     for smoking_state in [1,2,3,4,5,6]: 
                         # determine count of people which fit the descriptors
                         # note smoking state == 6 means dead
@@ -293,80 +280,42 @@ class Simulation(object):
                         if smoking_state == 5 and arr2345 is None and arr1 is None:
                             count = 0
                         elif smoking_state == 5 and arr2345 is None:
-                            count += np.sum(
-                                (arr1[:,11] == black) *
-                                (arr1[:,14] == pov) *
-                                (arr1[:,4 + 1] == 0) * 
-                                (arr1[:,4 + 2] == 0) * 
-                                (arr1[:,4 + 3] == 0) * 
-                                (arr1[:,4 + 4] == 0) * 
-                                (arr1[:,16])
-                            )
-                        elif smoking_state == 5 and arr1 is None:
-                            count = np.sum(
-                                (arr2345[:,11] == black) *
-                                (arr2345[:,14] == pov) *
-                                (arr2345[:,4 + 1] == 0) * 
-                                (arr2345[:,4 + 2] == 0) * 
-                                (arr2345[:,4 + 3] == 0) * 
-                                (arr2345[:,4 + 4] == 0) * 
-                                (arr2345[:,16])
-                            )
+                            count = 0
                         elif smoking_state == 5:
                             count = np.sum(
-                                (arr2345[:,11] == black) *
-                                (arr2345[:,14] == pov) *
+                                (arr2345[:,10] == black) *
+                                (arr2345[:,13] == pov) *
                                 (arr2345[:,4 + 1] == 0) * 
                                 (arr2345[:,4 + 2] == 0) * 
                                 (arr2345[:,4 + 3] == 0) * 
-                                (arr2345[:,4 + 4] == 0) * 
-                                (arr2345[:,16])
-                            )
-                            count += np.sum(
-                                (arr1[:,11] == black) *
-                                (arr1[:,14] == pov) *
-                                (arr1[:,4 + 1] == 0) * 
-                                (arr1[:,4 + 2] == 0) * 
-                                (arr1[:,4 + 3] == 0) * 
-                                (arr1[:,4 + 4] == 0) * 
-                                (arr1[:,16])
+                                (arr2345[:,15])
                             )
                         elif smoking_state == 6 and arr6 is not None:
                             count = np.sum(
-                                (arr6[:,11] == black) *
-                                (arr6[:,14] == pov) *
-                                (arr6[:,16])
+                                (arr6[:,10] == black) *
+                                (arr6[:,13] == pov) *
+                                (arr6[:,15])
                             )
                         elif smoking_state == 6 and arr6 is None:
                             count = 0
+                        elif smoking_state == 1 and arr1 is None:
+                            count = 0
+                        elif smoking_state == 1:
+                            count = np.sum(
+                                (arr1[:,10] == black) *
+                                (arr1[:,13] == pov) *
+                                (arr1[:,15])
+                            )
                         elif arr2345 is None and arr1 is None:
                             count = 0
-                        elif arr1 is None:
-                            count = np.sum(
-                                (arr2345[:,11] == black) *
-                                (arr2345[:,14] == pov) *
-                                (arr2345[:,4 + smoking_state] == 1) * 
-                                (arr2345[:,16])
-                            )
                         elif arr2345 is None:
-                            count += np.sum(
-                                (arr1[:,11] == black) *
-                                (arr1[:,14] == pov) *
-                                (arr1[:,4 + smoking_state] == 1) * 
-                                (arr1[:,16])
-                            )
+                            count=0
                         else:
                             count = np.sum(
                                 (arr2345[:,11] == black) *
                                 (arr2345[:,14] == pov) *
-                                (arr2345[:,4 + smoking_state] == 1) * 
+                                (arr2345[:,4 + smoking_state - 1] == 1) * 
                                 (arr2345[:,16])
-                            )
-                            count += np.sum(
-                                (arr1[:,11] == black) *
-                                (arr1[:,14] == pov) *
-                                (arr1[:,4 + smoking_state] == 1) * 
-                                (arr1[:,16])
                             )
                         
                         # write list and numpy arr
@@ -422,27 +371,41 @@ class Simulation(object):
             arr1_death_chances_male = None
             arr1_death_chances_female = None
 
-            arr2345_ages = arr2345[:, 12].astype(np.int32)
-            arr2345_ages = list(arr2345_ages.clip(min=0, max = 100))
-            arr2345_sex = arr2345[:, 13].astype(np.bool_) # True = Female, False = Male
+            arr2345_ages = arr2345[:, 11].astype(np.int32)
+            arr2345_ages = list(arr2345_ages.clip(min=0, max = 100)) # does not overwrite arr2345
+            arr2345_sex = arr2345[:, 12].astype(np.bool_) # True = Female, False = Male
 
-            arr1_ages = arr1[:, 12].astype(np.int32)
+            arr1_ages = arr1[:, 11].astype(np.int32)
             arr1_ages = list(arr1_ages.clip(min=0, max = 100))
-            arr1_sex = arr1[:, 13].astype(np.bool_) # True = Female, False = Male
+            arr1_sex = arr1[:, 12].astype(np.bool_) # True = Female, False = Male
 
 
             if self.use_adjusted_death_rates:
                 """
-                Need to take into account relative risk of death for smokers (state 3,4) and nonsmokers (state 1,2,5)
-                RR = % mortality smokers / % mortality nonsmokers
-                average death rate = (% mortality smokers * % smokers) + (% mortality nonsmokers * % nonsmokers)
-                We have prevalence of smoking for each age, ages 55-90
+                Need to take into account relative risk of death for smokers (state 3,4,5), never smokers (state 1), and former smokers (state 2)
 
-                I found the following equations for death rates:
+                ps = proportion current smokers
+                pf = proportion former smokers
+                pn = proportion nonsmokers
 
-                smoker_deathrate = average_deathrate / (proportion_smokers + (1 - proportion_smokers) / current_smoker_RR)
-                nonsmoker_deathrate = average_deathrate / (proportion_smokers * current_smoker_RR + (1 - proportion_smokers))
-                former_smoker_deathrate = average_deathrate * former_smoker_RR / (proportion_smokers + (1 - proportion_smokers) / current_smoker_RR)
+                adr = average death rate 
+                sdr = current smoker death rate
+                fdr = former smoker death rate
+                ndr = nonsmoker death rate
+
+                RRfc = Relative Risk of mortality for former smokers  vs current smokers
+                RRsn = Relative Risk of mortality for current smokers vs nonsmokers
+
+                For a fixed age and sex, the following equations hold:
+
+                adr == ps*sdr + pf*fdr + pn*ndr
+                RRfc == fdr / sdr
+                RRsn == sdr/ndr
+
+                The solutions (due to mathematica) are:
+                sdr == (adr * RRsn)/(pn + ps * RRsn + pf * RRfc * RRsn)
+                fdr -> (adr RRfc * RRsn)/(pn + ps * RRsn + pf * RRfc * RRsn)
+                ndr -> adr/(pn + ps RRsn + pf RRfc RRsn)
                 """
 
                 # first work on arr2345

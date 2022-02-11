@@ -55,8 +55,8 @@ def main(args):
                     smoking_prevalences=smoking_prevalence_dict,
                     current_smoker_RR=csvnsRR,
                     former_smoker_RR=fsvcsRR,
-                    save_xl_fname='transitions',
-                    save_np_fname='transitions',
+                    save_xl_fname='xl_output',
+                    save_np_fname='np_output',
                     save_transition_np_fname='transitions',
                     )
 

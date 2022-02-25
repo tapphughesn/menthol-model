@@ -41,6 +41,13 @@ def main(args):
     pop_file_name = os.path.join("..","..","population_files_Feb8","population_file_sent_Feb8.xlsx")
     pop_df = pd.read_excel(pop_file_name)
 
+    # Get cohorts of 18 year olds
+    cohorts_18_dict = {}
+    cohorts_18_dict[2016] = pd.read_excel(os.path.join("..", "..", "Output_SM", "Cohort 18 years", "Wave 2 fresh population profile.xlsx")).to_numpy()
+    cohorts_18_dict[2017] = pd.read_excel(os.path.join("..", "..", "Output_SM", "Cohort 18 years", "Wave 3 fresh population profile.xlsx")).to_numpy()
+    cohorts_18_dict[2018] = pd.read_excel(os.path.join("..", "..", "Output_SM", "Cohort 18 years", "Wave 4 fresh population profile.xlsx")).to_numpy()
+    cohort_adding_pattern = [2,1,1,1,1,1,1,1,1,1]
+
     # Get logistic regression betas
     beta2345_f = os.path.join("..","..","Output_SM","Betas","Beta_Estimates_2345.xlsx")
     beta1_f = os.path.join("..","..","Output_SM","Betas","Beta_Estimates_1.xlsx")
@@ -52,12 +59,16 @@ def main(args):
                     beta2345=beta2345_arr, 
                     beta1=beta1_arr, 
                     life_tables=life_table_dict,
+                    cohorts=cohorts_18_dict,
+                    cohort_adding_pattern=cohort_adding_pattern,
                     smoking_prevalences=smoking_prevalence_dict,
                     current_smoker_RR=csvnsRR,
                     former_smoker_RR=fsvcsRR,
                     save_xl_fname='xl_output',
                     save_np_fname='np_output',
                     save_transition_np_fname='transitions',
+                    # end_year=2030,
+                    use_adjusted_death_rates=True,
                     )
 
         s.simulate()
@@ -68,4 +79,8 @@ if __name__ == '__main__':
                         type=int,
                         default=1,
                         help='the number of relplications to do')
+    parser.add_argument('use_complex_death_rates', 
+                        type=bool,
+                        default=True,
+                        help='whether or not to use separate death rates for smokers, nonsmokers, and former smokers')
     main(parser.parse_args())

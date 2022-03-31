@@ -7,6 +7,7 @@ import os
 def main(args):
     # 0 = male
     # 1 = female
+    print(args)
 
     # Get life tables
     life_table_dict = {}
@@ -68,7 +69,8 @@ def main(args):
                     save_np_fname='np_output',
                     save_transition_np_fname='transitions',
                     # end_year=2030,
-                    use_adjusted_death_rates=True,
+                    use_adjusted_death_rates=args.complex_death_rates,
+                    menthol_ban=args.menthol_ban,
                     )
 
         s.simulate()
@@ -79,8 +81,14 @@ if __name__ == '__main__':
                         type=int,
                         default=1,
                         help='the number of relplications to do')
-    parser.add_argument('use_complex_death_rates', 
-                        type=bool,
-                        default=True,
+    parser.add_argument('--complex_death_rates', 
+                        # type=bool,
+                        default=False,
+                        action='store_true',
                         help='whether or not to use separate death rates for smokers, nonsmokers, and former smokers')
+    parser.add_argument('--menthol_ban', 
+                        # type=bool,
+                        default=False,
+                        action='store_true',
+                        help='whether or not to implement a menthol ban at year 10')
     main(parser.parse_args())

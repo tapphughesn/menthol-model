@@ -140,6 +140,10 @@ class Simulation(object):
         self.output_numpy = np.zeros((end_year - start_year + 1, 2, 2, 6))
         self.now_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
         self.menthol_ban = menthol_ban
+        if self.menthol_ban:
+            self.save_xl_fname += "_menthol_ban"
+            self.save_np_fname += "_menthol_ban"
+            self.save_transition_np_fname += "_menthol_ban"
         self.age_last_smoked_for_ia1 = 17
 
         self.use_adjusted_death_rates = use_adjusted_death_rates
@@ -200,15 +204,6 @@ class Simulation(object):
         # grab relative risks
         RRsn = self.current_smoker_RR[min((age - 55) // 5, 6), sex]
         RRfc = self.former_smoker_RR[3, sex] # use the RR for former smokers who have not smoked in 10-19 years by default
-
-        # print("-------")
-        # print(age, sex)
-        # print(pn, ps, pf)
-        # print(RRsn, RRfc)
-        # print(adr)
-        # print((adr * RRsn) / (pn + ps * RRsn + pf * RRfc * RRsn))
-        # print(adr / (pn + ps * RRsn + pf * RRfc * RRsn))
-        # quit()
 
         # separate into cases depending on the smoking status of the person
         if p[5]:
@@ -658,12 +653,6 @@ class Simulation(object):
             
             arr1 = arr1[np.logical_not(deaths_1)]
 
-            # print("after deaths", cy)
-            # pops = (np.sum(arr2345[:,15]), np.sum(arr1[:,15]), np.sum(arr6[:,15]))
-            # print(pops)
-            # print(sum(pops))
-            # print("-------------")
-            # TODO: take into account instantaneous menthol ban effects
 
             # next we update the smoking status of people
             logits_2345 = np.matmul(arr2345, beta_2345_aug).astype(np.float64)
@@ -694,14 +683,53 @@ class Simulation(object):
                 p4*exps[:,3], # p5
             ], dtype=np.float64).transpose()
 
-            # TODO: take into account menthol ban long-term effects (affects transition probabilites)
+            """
+            Instantaneous menthol ban effects at year 10:
 
-            if self.menthol_ban:
-                pass
+            Among those 25+ years, 
+                23% of menthol cigarette smokers quit smoking, 
+                44% switch of menthol cigarette smokers switch to non-menthol cigarettes (state 4), 
+                20% continue using menthol cigarettes (state 3), 
+                and 13% switch to e-cigs (state 5). 
+            Among 18-24 year olds post-ban, 
+                39% of menthol cigarette smokers quit, 
+                3% continue using menthol cigarettes, 
+                18% switch to e-cigs, 
+                and 40% switch to non-menthol cigarettes. 
+
+            I am going to implement this by overridding the transistion probabilities
+            of people this year. I will take the probability of becoming a menthol smoker
+            and distribute it among the 5 probabilities according to the proportions
+            given above
+            """
+
+            if self.menthol_ban and cy == 0:
+
+                probs_25minus = np.array([0.,0.39,0.03,0.40,0.18])
+                probs_25plus = np.array([0.,0.23,0.20,0.44,0.13])
+
+                assert(sum(probs_25minus) == 1.)
+                assert(sum(probs_25plus) == 1.)
+
+                are_25plus_2345 = arr2345[:,11] >= 25
+                are_25minus_2345 = np.logical_not(are_25plus_2345)
+                are_25plus_1 = arr1[:,11] >= 25
+                are_25minus_1 = np.logical_not(are_25plus_1)
+
+                for i in [1, 3, 4]:
+                    probs2345[are_25plus_2345,i] += probs_25plus[i] * probs2345[are_25plus_2345,2]
+                    probs2345[are_25minus_2345,i] += probs_25minus[i] * probs2345[are_25minus_2345,2]
+
+                    probs1[are_25plus_1,i] += probs_25plus[i] * probs1[are_25plus_1,2]
+                    probs1[are_25minus_1,i] += probs_25minus[i] * probs1[are_25minus_1,2]
+                
+                probs2345[are_25plus_2345,2] *= probs_25plus[2]
+                probs2345[are_25minus_2345,2] *= probs_25minus[2]
+                probs1[are_25plus_1,2] *= probs_25plus[2]
+                probs1[are_25minus_1,2] *= probs_25minus[2]
 
             # update current state, old state
 
-            # proud of this
             # need to think of a better name for this function
             def random_select_arg_multinomial(probs):
                 """"
@@ -718,7 +746,6 @@ class Simulation(object):
 
             new_states2345 = random_select_arg_multinomial(probs2345)[:,:] # (s1, s2, s3, s4, s5)
             # print(new_states2345.shape) # (9508, 5)
-
             new_states1 = random_select_arg_multinomial(probs1)[:,:].astype(np.float64) # (s1, s2, s3, s4, s5)
 
             # leaving_1 is True for each row in new_states1 which has chosen to transition to 2, 3, 4, or 5
@@ -728,6 +755,7 @@ class Simulation(object):
             # the new states into the current states
 
             arr2345[:,2:5] = arr2345[:,5:8]
+            arr2345[:,1] = np.zeros(arr2345.shape[0]) # no more previous never smokers
             # dont need to move arr1 stuff because arr1's previous state has not changed at all
 
             arr2345[:,5:8] = new_states2345[:,1:-1] 

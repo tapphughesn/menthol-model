@@ -44,9 +44,12 @@ def main(args):
 
     # Get cohorts of 18 year olds
     cohorts_18_dict = {}
-    cohorts_18_dict[2016] = pd.read_excel(os.path.join("..", "..", "Output_SM", "Cohort 18 years", "Wave 2 fresh population profile.xlsx")).to_numpy()
-    cohorts_18_dict[2017] = pd.read_excel(os.path.join("..", "..", "Output_SM", "Cohort 18 years", "Wave 3 fresh population profile.xlsx")).to_numpy()
-    cohorts_18_dict[2018] = pd.read_excel(os.path.join("..", "..", "Output_SM", "Cohort 18 years", "Wave 4 fresh population profile.xlsx")).to_numpy()
+    # cohorts_18_dict[2016] = pd.read_excel(os.path.join("..", "..", "Output_SM", "Cohort 18 years", "Wave 2 fresh population profile.xlsx")).to_numpy()
+    # cohorts_18_dict[2017] = pd.read_excel(os.path.join("..", "..", "Output_SM", "Cohort 18 years", "Wave 3 fresh population profile.xlsx")).to_numpy()
+    # cohorts_18_dict[2018] = pd.read_excel(os.path.join("..", "..", "Output_SM", "Cohort 18 years", "Wave 4 fresh population profile.xlsx")).to_numpy()
+    cohorts_18_dict[2016] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 2 fresh population profile.xlsx")).to_numpy()
+    cohorts_18_dict[2017] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 3 fresh population profile.xlsx")).to_numpy()
+    cohorts_18_dict[2018] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 4 fresh population profile.xlsx")).to_numpy()
     cohort_adding_pattern = [2,1,1,1,1,1,1,1,1,1]
 
     # Get logistic regression betas

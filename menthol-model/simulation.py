@@ -111,7 +111,9 @@ class Simulation(object):
                  save_dir: str= '../../outputs/',
                  end_year: int=2066, 
                  start_year: int=2016,
-                 menthol_ban: bool=False):
+                 menthol_ban: bool=False,
+                 short_term_option: int=1,
+                 long_term_option: int=1):
         
         self.pop_df = pop_df
         self.life_tables = life_tables # dict int (year), int (sex) -> array
@@ -140,10 +142,14 @@ class Simulation(object):
         self.output_numpy = np.zeros((end_year - start_year + 1, 2, 2, 6))
         self.now_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
         self.menthol_ban = menthol_ban
+        self.short_term_option = short_term_option
+        self.long_term_option = short_term_option
         if self.menthol_ban:
-            self.save_xl_fname += "_menthol_ban"
-            self.save_np_fname += "_menthol_ban"
-            self.save_transition_np_fname += "_menthol_ban"
+            assert(short_term_option in [1,2,3,4])
+            assert(long_term_option in [1,2,3,4])
+            self.save_xl_fname += "_menthol_ban_" + str(short_term_option) + '_' + str(long_term_option)
+            self.save_np_fname += "_menthol_ban_" + str(short_term_option) + '_' + str(long_term_option)
+            self.save_transition_np_fname += "_menthol_ban_" + str(short_term_option) + '_' + str(long_term_option)
         self.age_last_smoked_for_ia1 = 17
 
         self.use_adjusted_death_rates = use_adjusted_death_rates
@@ -684,8 +690,9 @@ class Simulation(object):
             ], dtype=np.float64).transpose()
 
             """
-            Instantaneous menthol ban effects at year 10:
+            Instantaneous menthol ban effects at year 1:
 
+            Example option:
             Among those 25+ years, 
                 23% of menthol cigarette smokers quit smoking, 
                 44% switch of menthol cigarette smokers switch to non-menthol cigarettes (state 4), 
@@ -705,8 +712,27 @@ class Simulation(object):
 
             if self.menthol_ban and cy == 0:
 
-                probs_25minus = np.array([0.,0.39,0.03,0.40,0.18])
-                probs_25plus = np.array([0.,0.23,0.20,0.44,0.13])
+                probs_25minus = None
+                probs_25plus = None
+
+                option1 = np.array([0.,0.23,0.20,0.44,0.13])
+                option2 = np.array([0.,0.27,0.19,0.42,0.12])
+                option3 = np.array([0.,0.18,0.22,0.46,0.14])
+                option4 = np.array([0.,0.25,0.15,0.46,0.14])
+                options = [option1, option2, option3, option4]
+
+                if self.short_term_option == 1:
+                    probs_25minus = options[1]
+                    probs_25plus = options[0]
+                elif self.short_term_option == 2:
+                    probs_25minus = options[1]
+                    probs_25plus = options[1]
+                elif self.short_term_option == 3:
+                    probs_25minus = options[0]
+                    probs_25plus = options[2]
+                elif self.short_term_option == 4:
+                    probs_25minus = options[3]
+                    probs_25plus = options[3]
 
                 assert(sum(probs_25minus) == 1.)
                 assert(sum(probs_25plus) == 1.)
@@ -727,6 +753,22 @@ class Simulation(object):
                 probs2345[are_25minus_2345,2] *= probs_25minus[2]
                 probs1[are_25plus_1,2] *= probs_25plus[2]
                 probs1[are_25minus_1,2] *= probs_25minus[2]
+            elif self.menthol_ban and cy > 0:
+                """
+                Long term menthol ban effects
+                """
+                if self.long_term_option == 1:
+                    probs2345[:,1] += probs2345[:,2] * 0.5 
+                    probs2345[:,2] *= 0.5
+                elif self.long_term_option == 2:
+                    probs2345[:,1] += probs2345[:,2] * 0.75
+                    probs2345[:,2] *= 0.25
+                elif self.long_term_option == 3:
+                    probs2345[:,3] += probs2345[:,2] * 0.5
+                    probs2345[:,2] *= 0.5
+                elif self.long_term_option == 4:
+                    probs2345[:,3] += probs2345[:,2] * 0.25
+                    probs2345[:,2] *= 0.75
 
             # update current state, old state
 

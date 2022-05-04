@@ -762,6 +762,10 @@ class Simulation(object):
             elif self.menthol_ban and cy > 0:
                 """
                 Long term menthol ban effects
+                TODO: fix bug: long term effect treats people who are currently
+                    menthol smokers differently than those who are not currently
+                    menthol smokers. No one is allowed to transition from states 1,2,4,5
+                    to state 3 after the ban
                 """
                 if self.long_term_option == 1:
                     # print("long term option", self.long_term_option)

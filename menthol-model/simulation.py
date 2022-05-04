@@ -143,7 +143,9 @@ class Simulation(object):
         self.now_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
         self.menthol_ban = menthol_ban
         self.short_term_option = short_term_option
-        self.long_term_option = short_term_option
+        self.long_term_option = long_term_option
+        # print("short term option", short_term_option)
+        # print("long term option", long_term_option)
         if self.menthol_ban:
             assert(short_term_option in [1,2,3,4])
             assert(long_term_option in [1,2,3,4])
@@ -722,15 +724,19 @@ class Simulation(object):
                 options = [option1, option2, option3, option4]
 
                 if self.short_term_option == 1:
+                    print("short term option", self.short_term_option)
                     probs_25minus = options[1]
                     probs_25plus = options[0]
                 elif self.short_term_option == 2:
+                    print("short term option", self.short_term_option)
                     probs_25minus = options[1]
                     probs_25plus = options[1]
                 elif self.short_term_option == 3:
+                    print("short term option", self.short_term_option)
                     probs_25minus = options[0]
                     probs_25plus = options[2]
                 elif self.short_term_option == 4:
+                    print("short term option", self.short_term_option)
                     probs_25minus = options[3]
                     probs_25plus = options[3]
 
@@ -758,15 +764,19 @@ class Simulation(object):
                 Long term menthol ban effects
                 """
                 if self.long_term_option == 1:
+                    # print("long term option", self.long_term_option)
                     probs2345[:,1] += probs2345[:,2] * 0.5 
                     probs2345[:,2] *= 0.5
                 elif self.long_term_option == 2:
+                    # print("long term option", self.long_term_option)
                     probs2345[:,1] += probs2345[:,2] * 0.75
                     probs2345[:,2] *= 0.25
                 elif self.long_term_option == 3:
+                    # print("long term option", self.long_term_option)
                     probs2345[:,3] += probs2345[:,2] * 0.5
                     probs2345[:,2] *= 0.5
                 elif self.long_term_option == 4:
+                    # print("long term option", self.long_term_option)
                     probs2345[:,3] += probs2345[:,2] * 0.25
                     probs2345[:,2] *= 0.75
 

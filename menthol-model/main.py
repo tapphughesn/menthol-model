@@ -39,9 +39,9 @@ def main(args):
     fsvcsRR = pd.read_excel(os.path.join("..", "..", "smoking_prevalence", "former_smoker_mortality_vs_current_smoker.xlsx")).to_numpy()[:,1:]
 
     # Get population data
-    # pop_file_name = os.path.join("..","..","population_files_Feb8","population_file_sent_Feb8.xlsx")
+    pop_file_name = os.path.join("..","..","population_files_Feb8","population_file_sent_Feb8.xlsx")
     # Use calibration population data
-    pop_file_name = os.path.join("..","..","Calibrated Population","Calibrated Population","PATH_Calibrate_18_64.xlsx")
+    # pop_file_name = os.path.join("..","..","Calibrated Population","Calibrated Population","PATH_Calibrate_18_64.xlsx")
 
     pop_df = pd.read_excel(pop_file_name)
 
@@ -52,13 +52,13 @@ def main(args):
     # cohorts_18_dict[2017] = pd.read_excel(os.path.join("..", "..", "Output_SM", "Cohort 18 years", "Wave 3 fresh population profile.xlsx")).to_numpy()
     # cohorts_18_dict[2018] = pd.read_excel(os.path.join("..", "..", "Output_SM", "Cohort 18 years", "Wave 4 fresh population profile.xlsx")).to_numpy()
 
-    # cohorts_18_dict[2016] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 2 fresh population profile.xlsx")).to_numpy()
-    # cohorts_18_dict[2017] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 3 fresh population profile.xlsx")).to_numpy()
-    # cohorts_18_dict[2018] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 4 fresh population profile.xlsx")).to_numpy()
+    cohorts_18_dict[2016] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 2 fresh population profile.xlsx")).to_numpy()
+    cohorts_18_dict[2017] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 3 fresh population profile.xlsx")).to_numpy()
+    cohorts_18_dict[2018] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 4 fresh population profile.xlsx")).to_numpy()
 
-    cohorts_18_dict[2016] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave2_Calibrate_18.xlsx")).to_numpy()
-    cohorts_18_dict[2017] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave3_Calibrate_18.xlsx")).to_numpy()
-    cohorts_18_dict[2018] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave4_Calibrate_18.xlsx")).to_numpy()
+    # cohorts_18_dict[2016] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave2_Calibrate_18.xlsx")).to_numpy()
+    # cohorts_18_dict[2017] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave3_Calibrate_18.xlsx")).to_numpy()
+    # cohorts_18_dict[2018] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave4_Calibrate_18.xlsx")).to_numpy()
 
     cohort_adding_pattern = [2,1,1,1,1,1,1,1,1,1]
 
@@ -68,9 +68,10 @@ def main(args):
     beta2345_arr = pd.read_excel(beta2345_f).to_numpy()[:,2:]
     beta1_arr = pd.read_excel(beta1_f).to_numpy()[:,2:]
 
-    for i in range(args.number_replications):
-    # for i in range(4):
-    #     for j in range(4):
+    # for i in range(args.number_replications):
+    for i in range(4):
+        for j in range(4):
+            print(i+1, j+1)
             s = Simulation(pop_df=pop_df, 
                         beta2345=beta2345_arr, 
                         beta1=beta1_arr, 
@@ -80,19 +81,19 @@ def main(args):
                         smoking_prevalences=smoking_prevalence_dict,
                         current_smoker_RR=csvnsRR,
                         former_smoker_RR=fsvcsRR,
-                        # save_xl_fname='xl_output',
-                        save_xl_fname='xl_output_calibrated',
-                        # save_np_fname='np_output,
-                        save_np_fname='np_output_calibrated',
-                        # save_transition_np_fname='transitions',
-                        save_transition_np_fname='transitions_calibrated',
-                        # end_year=2030,
+                        save_xl_fname='xl_output',
+                        # save_xl_fname='xl_output_calibrated',
+                        save_np_fname='np_output',
+                        # save_np_fname='np_output_calibrated',
+                        save_transition_np_fname='transitions',
+                        # save_transition_np_fname='transitions_calibrated',
                         use_adjusted_death_rates=args.complex_death_rates,
+                        end_year = 2066,
                         menthol_ban=args.menthol_ban,
-                        # short_term_option=i+1,
-                        short_term_option=1,
-                        # long_term_option=j+1,
-                        long_term_option=1,
+                        short_term_option=i+1,
+                        # short_term_option=1,
+                        long_term_option=j+1,
+                        # long_term_option=1,
                         )
 
             s.simulate()

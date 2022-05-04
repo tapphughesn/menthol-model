@@ -12,24 +12,22 @@ data_files = sorted(glob('../../outputs/numpy_arrays/np_output_menthol_ban_?_?_*
 for var1 in range(1,5):
     for var2 in range(1,5):
 
-        # data_files = sorted(glob(f'../../outputs/numpy_arrays/np_output_menthol_ban_{var1}_{var2}_*'))
-        data_files = sorted(glob(f'../../outputs/numpy_arrays/np_output_calibrated*'))
+        data_files = sorted(glob(f'../../outputs/numpy_arrays/np_output_menthol_ban_{var1}_{var2}_*'))
+        # data_files = sorted(glob(f'../../outputs/numpy_arrays/np_output_calibrated*'))
+
         df = data_files[0]
-        # arr2 = np.load(data_files[-4])
+        print(df)
         arr = np.load(df)
-        # savedir = os.path.join("..","..","figs","long_term_menthol_ban",
-        #         f"short_term_option_{var1}", f"long_term_option_{var2}")
-        savedir = os.path.join("..", "..", "figs", "calibrated")
+        savedir = os.path.join("..","..","figs","long_term_menthol_ban",
+                f"short_term_option_{var1}", f"long_term_option_{var2}")
+        # savedir = os.path.join("..", "..", "figs", "calibrated")
 
         arr_year_smoking_state = None
-        # arr2_year_smoking_state = None
 
         arr_year_smoking_state = np.sum(arr,axis=(1,2))
-        # arr2_year_smoking_state = np.sum(arr2,axis=(1,2))
         arr_year_smoking_state.shape
 
         arr_year_smoking_state /= 1e6
-        # arr2_year_smoking_state /= 1e6
 
         mycolors = ['tab:red', 'tab:blue', 'tab:green', 'tab:orange', 'tab:brown', 'tab:grey',]
 
@@ -66,10 +64,8 @@ for var1 in range(1,5):
         ###############################################
 
         arr_no_dead = arr_year_smoking_state[:,:-1]
-        # arr2_no_dead = arr2_year_smoking_state[:,:-1]
 
         arr_no_dead_percents = arr_no_dead / np.sum(arr_no_dead, axis=1).reshape(-1,1) * 100
-        # arr2_no_dead_percents = arr2_no_dead / np.sum(arr2_no_dead, axis=1).reshape(-1,1) * 100
 
         fig, ax = plt.subplots(1,1,figsize=(16,9), dpi=200)
         ax.plot(x, arr_no_dead_percents[:,0], mycolors[0],
@@ -93,10 +89,8 @@ for var1 in range(1,5):
 
         fig, ax = plt.subplots(1,1,figsize=(16,6), dpi=200)
         y = np.sum(arr_no_dead_percents[:,2:], axis=1)
-        # y2 = np.sum(arr2_no_dead_percents[:,2:], axis=1)
 
         ax.plot(x, y, mycolors[0])
-        # ax.plot(x, y2, mycolors[1])
 
         plt.ylim(10,30)
         plt.xlim(x[0]-1, x[-1]+1)
@@ -116,8 +110,8 @@ for var1 in range(1,5):
         #         ax.annotate(str(int(j * 100) / 100) + "%", xy=(i,j+0.5))
         #         ax.scatter([i],[j],c=mycolors[1])
 
-        # plt.title("Proportion of smokers in the living population", fontsize=16)
-        plt.title("Effect of menthol ban on proportion of smokers", fontsize=16)
+        plt.title("Proportion of smokers in the living population", fontsize=16)
+        # plt.title("Effect of menthol ban on proportion of smokers", fontsize=16)
 
         plt.savefig(os.path.join(savedir, "smoker_proportion.png"))
         plt.clf()
@@ -126,10 +120,8 @@ for var1 in range(1,5):
 
         fig, ax = plt.subplots(1,1,figsize=(16,6), dpi=200)
         y = arr_no_dead_percents[:,2] / np.sum(arr_no_dead_percents[:,2:], axis=1) * 100
-        # y2 = arr2_no_dead_percents[:,2] / np.sum(arr2_no_dead_percents[:,2:], axis=1) * 100
 
         ax.plot(x, y, mycolors[0])
-        # ax.plot(x, y2, mycolors[1])
 
         plt.ylim(0,100)
         plt.xlim(x[0]-1, x[-1]+1)
@@ -137,7 +129,7 @@ for var1 in range(1,5):
         plt.ylabel("Percentage menthol smokers", fontsize=12)
         plt.xticks(x[::5], fontsize=10, horizontalalignment='center')
         # ax.legend(["complex death rate", "average death rate"], fontsize=12, ncol=1)
-        ax.legend(["menthol ban", "no menthol ban"], fontsize=12, ncol=1)
+        # ax.legend(["menthol ban", "no menthol ban"], fontsize=12, ncol=1)
         for i,j in zip(x, y):
             # if (i - 2016) % 5 == 0:
             if i == 2017 or i == 2018:
@@ -149,10 +141,10 @@ for var1 in range(1,5):
         #         ax.annotate(str(int(j * 100) / 100) + "%", xy=(i + 0.5,j + 2))
         #         ax.scatter([i],[j],c=mycolors[1])
 
-        plt.title("Effect of menthol ban on proportion of menthol smokers in smoking population", fontsize=16)
+        # plt.title("Effect of menthol ban on proportion of menthol smokers in smoking population", fontsize=16)
+        plt.title("Proportion of menthol smokers in smoking population", fontsize=16)
         plt.savefig(os.path.join(savedir, "menthol_proportion.png"))
         plt.clf()
 
         #############################################3
-        quit()
 

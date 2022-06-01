@@ -113,7 +113,8 @@ class Simulation(object):
                  start_year: int=2016,
                  menthol_ban: bool=False,
                  short_term_option: int=1,
-                 long_term_option: int=1):
+                 long_term_option: int=1,
+                 menthol_ban_year: int=2016):
         
         self.pop_df = pop_df
         self.life_tables = life_tables # dict int (year), int (sex) -> array
@@ -146,6 +147,8 @@ class Simulation(object):
         self.long_term_option = long_term_option
         # print("short term option", short_term_option)
         # print("long term option", long_term_option)
+        self.menthol_ban_year = menthol_ban_year
+
         if self.menthol_ban:
             assert(short_term_option in [1,2,3,4])
             assert(long_term_option in [1,2,3,4])
@@ -712,7 +715,7 @@ class Simulation(object):
             given above
             """
 
-            if self.menthol_ban and cy == 0:
+            if self.menthol_ban and cy == self.menthol_ban_year - self.start_year:
 
                 probs_25minus = None
                 probs_25plus = None
@@ -759,7 +762,7 @@ class Simulation(object):
                 probs2345[are_25minus_2345,2] *= probs_25minus[2]
                 probs1[are_25plus_1,2] *= probs_25plus[2]
                 probs1[are_25minus_1,2] *= probs_25minus[2]
-            elif self.menthol_ban and cy > 0:
+            elif self.menthol_ban and cy > self.menthol_ban_year - self.start_year:
                 """
                 Long term menthol ban effects
                 TODO: fix bug: long term effect treats people who are currently

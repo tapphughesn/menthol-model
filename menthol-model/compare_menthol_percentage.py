@@ -7,8 +7,8 @@ from glob import glob
 from matplotlib import pyplot as plt
 from matplotlib import ticker
 
-data_files = sorted(glob('../../outputs/numpy_arrays/np_output_menthol_ban_1_?_*'))
-# data_files = sorted(glob('../../outputs/numpy_arrays/np_output_menthol_ban_?_1_*'))
+# data_files = sorted(glob('../../outputs/numpy_arrays/np_output_menthol_ban_1_?_*'))
+data_files = sorted(glob('../../outputs/numpy_arrays/np_output_menthol_ban_?_1_*'))
 data_files = ['../../outputs/numpy_arrays/np_output_2022-04-15_11-39-20-499748.npy'] + data_files
 
 arrs = [np.load(df) for df in data_files]
@@ -68,18 +68,18 @@ if True:
     plt.ylabel("Percentage menthol smokers", fontsize=12)
     plt.xticks(x[::5], fontsize=10, horizontalalignment='center')
     # plt.xticks(x[::1], fontsize=10, horizontalalignment='center')
-    ax.legend(["no menthol ban",
-               "long term option 1",
-               "long term option 2",
-               "long term option 3",
-               "long term option 4"],
-                fontsize=12, ncol=1)
     # ax.legend(["no menthol ban",
-    #            "short term option 1",
-    #            "short term option 2",
-    #            "short term option 3",
-    #            "short term option 4"],
+    #            "long term option 1",
+    #            "long term option 2",
+    #            "long term option 3",
+    #            "long term option 4"],
     #             fontsize=12, ncol=1)
+    ax.legend(["no menthol ban",
+               "short term option 1",
+               "short term option 2",
+               "short term option 3",
+               "short term option 4"],
+                fontsize=12, ncol=1)
     # for i,j in zip(x, y):
     #     # if (i - 2016) % 5 == 0:
     #     if i == 2017 or i == 2018:
@@ -95,5 +95,5 @@ if True:
 
 #############################################3
 
-plt.savefig(os.path.join(savedir, "long_term_menthol_proportion.png"))
-# plt.savefig(os.path.join(savedir, "short_term_menthol_proportion.png"))
+# plt.savefig(os.path.join(savedir, "long_term_menthol_proportion_debug.png"))
+plt.savefig(os.path.join(savedir, "short_term_menthol_proportion_debug.png"))

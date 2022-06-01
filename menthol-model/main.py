@@ -81,11 +81,11 @@ def main(args):
                         smoking_prevalences=smoking_prevalence_dict,
                         current_smoker_RR=csvnsRR,
                         former_smoker_RR=fsvcsRR,
-                        save_xl_fname='xl_output',
+                        save_xl_fname=f'xl_output{2021}',
                         # save_xl_fname='xl_output_calibrated',
-                        save_np_fname='np_output',
+                        save_np_fname=f'np_output_ban{2021}',
                         # save_np_fname='np_output_calibrated',
-                        save_transition_np_fname='transitions',
+                        save_transition_np_fname=f'transitions_ban{2021}',
                         # save_transition_np_fname='transitions_calibrated',
                         use_adjusted_death_rates=args.complex_death_rates,
                         end_year = 2066,
@@ -94,6 +94,7 @@ def main(args):
                         # short_term_option=1,
                         long_term_option=j+1,
                         # long_term_option=1,
+                        menthol_ban_year = 2021,
                         )
 
             s.simulate()

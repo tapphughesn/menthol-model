@@ -1,3 +1,4 @@
+from mimetypes import init
 from re import I
 from matplotlib import use
 import pandas as pd
@@ -114,7 +115,8 @@ class Simulation(object):
                  menthol_ban: bool=False,
                  short_term_option: int=1,
                  long_term_option: int=1,
-                 menthol_ban_year: int=2016):
+                 menthol_ban_year: int=2016,
+                 initiation_rate_decrease: float=0.0):
         
         self.pop_df = pop_df
         self.life_tables = life_tables # dict int (year), int (sex) -> array
@@ -148,6 +150,8 @@ class Simulation(object):
         # print("short term option", short_term_option)
         # print("long term option", long_term_option)
         self.menthol_ban_year = menthol_ban_year
+        self.initiation_rate_decrease = initiation_rate_decrease
+        assert(0.0 <= initiation_rate_decrease <= 1.0)
 
         if self.menthol_ban:
             assert(short_term_option in [1,2,3,4])
@@ -843,6 +847,21 @@ class Simulation(object):
                     tmp[:,2] = 0
                     tmp /= np.sum(tmp, axis=1).reshape((-1,1))
                     probs2345[not_menthol_smokers] = tmp
+
+            """
+            Tune probabilities according to initiation_rate_decrease
+            parameter. The initiation_rate_decrease param tells you by
+            how much to deacrease the initiation rate, that is,
+            1 - (probability of a never smoker staying a never smoker).
+
+            Ex. If the probability of a person making the transition 1->1
+            is .8, and we decrease the initiation rate by 30%, then the
+            new probability of that person making the 1->1 is .86. 
+            """
+            
+            if self.initiation_rate_decrease > 0:
+                probs1[:,0] += (1 - probs1[:,0]) * self.initiation_rate_decrease
+                probs1[:,1:] -= probs1[:,1:] * self.initiation_rate_decrease
 
             # update current state, old state
 

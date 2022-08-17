@@ -7,18 +7,22 @@ from glob import glob
 from matplotlib import pyplot as plt
 from matplotlib import ticker
 
-# data_files = sorted(glob('../../outputs/numpy_arrays/np_output_menthol_ban_?_?_*'))
+# data_files = sorted(glob('../../outputs/numpy_arrays/np_output_ban2021_menthol_ban_?_?_*'))
+data_files = sorted(glob('../../outputs/numpy_arrays/np_output_menthol_ban_?_?_*'))
+
 # for df in data_files:
 for var1 in range(1,5):
     for var2 in range(1,5):
 
+        # data_files = sorted(glob(f'../../outputs/numpy_arrays/np_output_ban2021_menthol_ban_{var1}_{var2}_*'))
         data_files = sorted(glob(f'../../outputs/numpy_arrays/np_output_menthol_ban_{var1}_{var2}_*'))
         # data_files = sorted(glob(f'../../outputs/numpy_arrays/np_output_calibrated*'))
 
         df = data_files[0]
         print(df)
         arr = np.load(df)
-        savedir = os.path.join("..","..","figs","debug",
+        # savedir = os.path.join("..","..","figs","long_term_menthol_ban2021",
+        savedir = os.path.join("..","..","figs","long_term_menthol_ban",
                 f"short_term_option_{var1}", f"long_term_option_{var2}")
         # savedir = os.path.join("..", "..", "figs", "calibrated")
 

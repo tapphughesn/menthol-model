@@ -7,12 +7,18 @@ from glob import glob
 from matplotlib import pyplot as plt
 from matplotlib import ticker
 
-# data_files = sorted(glob('../../outputs/numpy_arrays/np_output_menthol_ban_1_?_*'))
-data_files = sorted(glob('../../outputs/numpy_arrays/np_output_menthol_ban_?_1_*'))
+"""
+e.g. compare menthol smoker proportion within
+smoking population across simulations that vary
+the long term option but fix the short term option
+"""
+
+# data_files = sorted(glob('../../outputs/numpy_arrays/np_output_ban2021_menthol_ban_1_?_*'))
+data_files = sorted(glob('../../outputs/numpy_arrays/np_output_ban2021_menthol_ban_?_1_*'))
 data_files = ['../../outputs/numpy_arrays/np_output_2022-04-15_11-39-20-499748.npy'] + data_files
 
 arrs = [np.load(df) for df in data_files]
-savedir = os.path.join("..", "..", "figs", "comparisons")
+savedir = os.path.join("..", "..", "figs", "comparisons2021")
 
 arr_y_s_s = [np.sum(arr,axis=(1,2)) for arr in arrs]
 
@@ -95,5 +101,5 @@ if True:
 
 #############################################3
 
-# plt.savefig(os.path.join(savedir, "long_term_menthol_proportion_debug.png"))
-plt.savefig(os.path.join(savedir, "short_term_menthol_proportion_debug.png"))
+# plt.savefig(os.path.join(savedir, "long_term_menthol_proportion.png"))
+plt.savefig(os.path.join(savedir, "short_term_menthol_proportion.png"))

@@ -7,14 +7,23 @@ from glob import glob
 from matplotlib import pyplot as plt
 from matplotlib import ticker
 
-data_files = sorted(glob('../../outputs/numpy_arrays/np_output_menthol_ban_1_?_*'))
-# data_files = sorted(glob('../../outputs/numpy_arrays/np_output_menthol_ban_?_1_*'))
+"""
+e.g. compare all long-term ban scenarios while 
+keeping the short term option fixed
+
+recently I have only used this for looking at
+smoking group proportions, not vstack or
+menthol proportion within smoker population.
+"""
+
+data_files = sorted(glob('../../outputs/numpy_arrays/np_output_ban2021_menthol_ban_1_?_*'))
+# data_files = sorted(glob('../../outputs/numpy_arrays/np_output_ban2021_menthol_ban_?_1_*'))
 data_files = ['../../outputs/numpy_arrays/np_output_2022-04-15_11-39-20-499748.npy'] + data_files
 # data_files = ['../../outputs/numpy_arrays/np_output_2022-04-15_11-39-20-499748.npy',
 #               '../../outputs/numpy_arrays/np_output_calibrated_2022-05-02_02-11-37-317448.npy']
 
 arrs = [np.load(df) for df in data_files]
-savedir = os.path.join("..", "..", "figs", "comparisons")
+savedir = os.path.join("..", "..", "figs", "comparisons2021")
 
 arr_y_s_s = [np.sum(arr,axis=(1,2)) for arr in arrs]
 
@@ -158,6 +167,6 @@ if False:
 
 #############################################3
 
-plt.savefig(os.path.join(savedir, "long_term_smoker_proportion_debug.png"))
-# plt.savefig(os.path.join(savedir, "short_term_smoker_proportion_debug.png"))
-# plt.savefig(os.path.join(savedir, "path_vs_calibrated_smoker_proportion_debug.png"))
+plt.savefig(os.path.join(savedir, "long_term_smoker_proportion.png"))
+# plt.savefig(os.path.join(savedir, "short_term_smoker_proportion.png"))
+# plt.savefig(os.path.join(savedir, "path_vs_calibrated_smoker_proportion.png"))

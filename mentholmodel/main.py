@@ -62,9 +62,9 @@ def main(args):
     # cohorts_18_dict[4] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 4 fresh population profile.xlsx")).to_numpy()
 
     # CALIBRATED
-    cohorts_18_dict[2] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave2_Calibrate_18.xlsx")).to_numpy()
-    cohorts_18_dict[3] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave3_Calibrate_18.xlsx")).to_numpy()
-    cohorts_18_dict[4] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave4_Calibrate_18.xlsx")).to_numpy()
+    cohorts_18_dict[2015] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave2_Calibrate_18.xlsx")).to_numpy()
+    cohorts_18_dict[2016] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave3_Calibrate_18.xlsx")).to_numpy()
+    cohorts_18_dict[2017] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave4_Calibrate_18.xlsx")).to_numpy()
 
     # Get logistic regression betas
     beta2345_f = os.path.join("..","..","Output_SM","Betas","Beta_Estimates_2345.xlsx")
@@ -73,6 +73,7 @@ def main(args):
     beta1_arr = pd.read_excel(beta1_f).to_numpy()[:,2:]
 
     # check initial smoking rate
+
     # print(pop_df.columns)
     # pop_arr = pop_df.to_numpy()
     # print(np.unique(pop_arr[:,4]))
@@ -84,46 +85,66 @@ def main(args):
     # quit()
 
 
-    # for i in range(args.number_replications):
-    
-    for i in range(101):
-    # for i in range(4):
-    #     for j in range(4):
-            # print(i+1, j+1)
-        print(i)
-        i_str = str(i)
-        while len(i_str) < 3:
-            i_str = "0" + i_str
-        assert(len(i_str) == 3)
+    for _ in range(args.number_replications):
         s = Simulation(pop_df=pop_df, 
                     beta2345=beta2345_arr, 
                     beta1=beta1_arr, 
                     life_tables=life_table_dict,
                     cohorts=cohorts_18_dict,
-                    # cohort_adding_pattern=cohort_adding_pattern,
                     smoking_prevalences=smoking_prevalence_dict,
                     current_smoker_RR=csvnsRR,
                     former_smoker_RR=fsvcsRR,
-                    # save_xl_fname=f'xl_output{2021}',
-                    # save_xl_fname='xl_output_calibrated',
-                    save_xl_fname=f'xl_output_calibrated_to_NHIS_' + i_str,
-                    # save_np_fname=f'np_output_ban{2021}',
-                    # save_np_fname='np_output_calibrated',
-                    save_np_fname=f'np_output_calibrated_to_NHIS_' + i_str,
-                    # save_transition_np_fname=f'transitions_ban{2021}',
-                    # save_transition_np_fname='transitions_calibrated',
-                    save_transition_np_fname=f'transitions_calibrated_' + i_str,
+                    save_xl_fname='xl_output_calibrated',
+                    save_np_fname='np_output_calibrated',
+                    save_transition_np_fname='transitions_calibrated',
                     use_adjusted_death_rates=args.complex_death_rates,
                     end_year = 2066,
                     menthol_ban=args.menthol_ban,
-                    # short_term_option=i+1,
                     short_term_option=1,
-                    # long_term_option=j+1,
                     long_term_option=1,
                     menthol_ban_year = 2021,
-                    initiation_rate_decrease=i/100,
+                    initiation_rate_decrease=0,
                     )
         s.simulate()
+    
+    # for i in range(101):
+    # # for i in range(4):
+    # #     for j in range(4):
+    #         # print(i+1, j+1)
+    #     print(i)
+    #     i_str = str(i)
+    #     while len(i_str) < 3:
+    #         i_str = "0" + i_str
+    #     assert(len(i_str) == 3)
+    #     s = Simulation(pop_df=pop_df, 
+    #                 beta2345=beta2345_arr, 
+    #                 beta1=beta1_arr, 
+    #                 life_tables=life_table_dict,
+    #                 cohorts=cohorts_18_dict,
+    #                 # cohort_adding_pattern=cohort_adding_pattern,
+    #                 smoking_prevalences=smoking_prevalence_dict,
+    #                 current_smoker_RR=csvnsRR,
+    #                 former_smoker_RR=fsvcsRR,
+    #                 # save_xl_fname=f'xl_output{2021}',
+    #                 # save_xl_fname='xl_output_calibrated',
+    #                 save_xl_fname=f'xl_output_calibrated_to_NHIS_' + i_str,
+    #                 # save_np_fname=f'np_output_ban{2021}',
+    #                 # save_np_fname='np_output_calibrated',
+    #                 save_np_fname=f'np_output_calibrated_to_NHIS_' + i_str,
+    #                 # save_transition_np_fname=f'transitions_ban{2021}',
+    #                 # save_transition_np_fname='transitions_calibrated',
+    #                 save_transition_np_fname=f'transitions_calibrated_' + i_str,
+    #                 use_adjusted_death_rates=args.complex_death_rates,
+    #                 end_year = 2066,
+    #                 menthol_ban=args.menthol_ban,
+    #                 # short_term_option=i+1,
+    #                 short_term_option=1,
+    #                 # long_term_option=j+1,
+    #                 long_term_option=1,
+    #                 menthol_ban_year = 2021,
+    #                 initiation_rate_decrease=i/100,
+    #                 )
+    #     s.simulate()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Specify simulation parameters')

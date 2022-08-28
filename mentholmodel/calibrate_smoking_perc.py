@@ -1,47 +1,40 @@
-from hypothesis import target
 import numpy as np
-import pandas as pd
-from matplotlib import pyplot as plt
+from typing import Tuple
 
+def calibrate_smoking_percentage(in_arr1: np.ndarray, in_arr2345: np.ndarray, target_smoker_percentage: float) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Calibrates the weights of a population so that the percentage of smokers
+    is equal to some target percentage.
 
-savedir = "/Users/nick/Documents/Gillings_work/nick_calibrated_population"
-uncalibrated_population_file = "/Users/nick/Documents/Gillings_work/population_files_Feb8/population_file_sent_Feb8.xlsx"
-target_smoking_percentage = 0.15
+    Takes the indicator-form numpy arrays to represent the population.
 
-pop_df = pd.read_excel(uncalibrated_population_file)
-# print(pop_df.columns)
+    Returns a tuple of the modified indicator-form numpy arrays.
 
-pop_arr = pop_df.to_numpy(dtype=np.float64)
+    Input arrays are not mutated!
+    """
 
-# print(np.int64(pop_arr[:5,:]))
+    smokers_arr = np.sum(in_arr2345[:,6:8], axis=1, dtype=bool)
+    nonsmokers_2345_arr = np.logical_not(smokers_arr)
 
-state_3_arr = pop_arr[:,4]
-weights_arr = pop_arr[:,8]
+    # sanity check
+    assert(np.sum(smokers_arr) + np.sum(nonsmokers_2345_arr) == len(in_arr2345))
+    
+    smoker_weight = np.sum(in_arr2345[:,15][smokers_arr])
+    nonsmoker_weight = np.sum(in_arr1[:,15]) + np.sum(in_arr2345[:,15][nonsmokers_2345_arr])
+    total_weight = np.sum(in_arr2345[:,15]) + np.sum(in_arr1[:,15])
 
-smokers_arr = np.logical_or(state_3_arr == 3, state_3_arr == 4) # smokers only in states 3 and 4, not ecig/dual
-non_smokers_arr = (1 - smokers_arr) == 1 # convert from int arr to bool arr
+    # sanity check
+    # some tolerance, these might not be exact due to rounding error
+    assert(abs(smoker_weight + nonsmoker_weight - total_weight) < 1e-2)
 
-assert(np.sum(smokers_arr) + np.sum(non_smokers_arr) == len(pop_arr))
+    smoker_weight_factor = total_weight * target_smoker_percentage / smoker_weight
+    nonsmoker_weight_factor = (total_weight - total_weight * target_smoker_percentage) / nonsmoker_weight
 
-print(np.sum(weights_arr[smokers_arr]))
-print(np.sum(weights_arr[non_smokers_arr]))
-print(np.sum(weights_arr[smokers_arr]) / np.sum(weights_arr))
+    out_arr1 = np.copy(in_arr1)
+    out_arr2345 = np.copy(in_arr2345)
 
-total_weight = np.sum(weights_arr)
+    out_arr1[:,15] *= nonsmoker_weight_factor
+    out_arr2345[:,15][nonsmokers_2345_arr] *= nonsmoker_weight_factor
+    out_arr2345[:,15][smokers_arr] *= smoker_weight_factor
 
-smoker_weight_factor = total_weight * target_smoking_percentage / np.sum(weights_arr[smokers_arr])
-non_smoker_weight_factor = (total_weight - total_weight * target_smoking_percentage) / np.sum(weights_arr[non_smokers_arr])
-
-print("---------------")
-print(smoker_weight_factor)
-print(non_smoker_weight_factor)
-
-new_weights_arr = np.copy(weights_arr)
-new_weights_arr[smokers_arr] *= smoker_weight_factor
-new_weights_arr[non_smokers_arr] *= non_smoker_weight_factor
-
-print('-------------')
-print(np.sum(new_weights_arr[smokers_arr]))
-print(int(np.sum(new_weights_arr[non_smokers_arr])))
-print(np.sum(new_weights_arr))
-print(np.sum(new_weights_arr[smokers_arr]) / np.sum(weights_arr))
+    return out_arr1, out_arr2345

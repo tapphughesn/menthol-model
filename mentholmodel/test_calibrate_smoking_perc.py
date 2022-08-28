@@ -1,14 +1,11 @@
 import numpy as np
 import pandas as pd
-import sys
-import os
+from simulation_helpers import path_to_indicator_form
+from calibrate_smoking_perc import calibrate_smoking_percentage
 
-
-## Not working right now, need to figure out later
-
-import simulation_helpers as sh
-import calibrate_smoking_perc as csp
-
+#######
+# SETUP
+#######
 
 uncalibrated_population_file = "/Users/nick/Documents/Gillings_work/population_files_Feb8/population_file_sent_Feb8.xlsx"
 target_smoking_percentage = 0.15
@@ -23,8 +20,8 @@ arr2345 = np.asarray([row for row in pop_arr
 arr1 = np.asarray([row for row in pop_arr 
             if (row[4] == 1 and row[3] == 1)], dtype=np.float64)
 
-arr2345 = sh.path_to_indicator_form(arr2345)
-arr1 = sh.path_to_indicator_form(arr1)
+arr2345 = path_to_indicator_form(arr2345)
+arr1 = path_to_indicator_form(arr1)
 
 start_year = 2016
 age_last_smoked_for_ia1 = 17
@@ -60,7 +57,7 @@ arr2345[ind ,16] = np.round(np.random.rand(np.sum(ind)) * to_multiply_rand + to_
 # NOW TEST
 ##########
 
-arr1_calib, arr2345_calib = csp.calibrate_smoking_percentage(arr1, arr2345, 0.15)
+arr1_calib, arr2345_calib = calibrate_smoking_percentage(arr1, arr2345, 0.15)
 
 smoker_ind = np.sum(arr2345[:,6:8], axis=1, dtype=bool)
 new_smoker_weight = np.sum(arr2345_calib[:,15][smoker_ind])

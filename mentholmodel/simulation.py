@@ -9,7 +9,7 @@ from datetime import date, datetime
 class Simulation(object):
 
     """
-    The array output of a simulation need to have 4 dimensions:
+    The array output of a simulation needs to have 4 dimensions:
         year
         race
         poverty
@@ -91,7 +91,7 @@ class Simulation(object):
         13. poverty
         14. start_age
         15. weight
-        16. year last smoked
+        16. year_last_smoked
 
     """
 
@@ -101,7 +101,7 @@ class Simulation(object):
                  beta1: np.ndarray, 
                  life_tables: dict,
                  cohorts: dict=None,
-                 cohort_adding_pattern: list=[1,1,1,1,1,1,1,1,1,1],
+                 last_year_cohort_added: int=2031,
                  smoking_prevalences: dict=None,
                  current_smoker_RR: np.ndarray=None,
                  former_smoker_RR: np.ndarray=None,
@@ -121,7 +121,7 @@ class Simulation(object):
         self.pop_df = pop_df
         self.life_tables = life_tables # dict int (year), int (sex) -> array
         self.cohorts = cohorts # dict int (year) -> array
-        self.cohort_adding_pattern = cohort_adding_pattern # list specifying how many cohorts to add for each year
+        self.last_year_cohort_added = last_year_cohort_added
         self.smoking_prevalences = smoking_prevalences # dict int (year) -> dict int (sex) -> 2darray (age 55+ X (never, current, former))
         self.current_smoker_RR = current_smoker_RR # Relative Risk of all cause mortality vs nonsmokers
         self.former_smoker_RR = former_smoker_RR # Relative Risk of all cause mortality vs current smokers
@@ -143,6 +143,7 @@ class Simulation(object):
         self.input_columns = pop_df.columns
         self.output_list_to_df = []
         self.output_numpy = np.zeros((end_year - start_year + 1, 2, 2, 6))
+        self.output_transitions = []
         self.now_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
         self.menthol_ban = menthol_ban
         self.short_term_option = short_term_option
@@ -375,77 +376,119 @@ class Simulation(object):
         probs[:,idx] = 0
         probs *= np.sum(probs, axis=1)
 
-    def simulate(self):
-
+    def write_data(self, cy, arr2345, arr1, arr6):
         """
-        Calling this function causes 1 run of the simulation to happen.
-        Results are written according to save_xl_fname and save_np_fname.
-        Optionally, transition numbers are written to save_transition_np_fname.
-
-        Args:
-            None
-        
-        Output:
-            self.output: the data written out from the simulation
+        Given the current year, arrays with the current state,
+        and output destination arrays, write data accordingly
         """
-        pop_arr = self.pop_df.to_numpy(dtype=np.float64)
+        # probably a way to do this without loops but idk
+        for black in [0,1]:
+            for pov in [0,1]:
+                for smoking_state in [1,2,3,4,5,6]: 
+                    # determine count of people which fit the descriptors
+                    # note smoking state == 6 means dead
+                    count = None
+                    if smoking_state == 5 and arr2345 is None:
+                        count = 0
+                    elif smoking_state == 5:
+                        count = np.sum(
+                            (arr2345[:,10] == black) *
+                            (arr2345[:,13] == pov) *
+                            (arr2345[:,5] == 0) * 
+                            (arr2345[:,6] == 0) * 
+                            (arr2345[:,7] == 0) * 
+                            (arr2345[:,15])
+                        )
+                    elif smoking_state == 6 and arr6 is not None:
+                        count = np.sum(
+                            (arr6[:,10] == black) *
+                            (arr6[:,13] == pov) *
+                            (arr6[:,15])
+                        )
+                    elif smoking_state == 6 and arr6 is None:
+                        count = 0
+                    elif smoking_state == 1 and arr1 is None:
+                        count = 0
+                    elif smoking_state == 1:
+                        count = np.sum(
+                            (arr1[:,10] == black) *
+                            (arr1[:,13] == pov) *
+                            (arr1[:,15])
+                        )
+                    elif arr2345 is None and arr1 is None:
+                        count = 0
+                    elif arr2345 is None:
+                        count=0
+                    elif smoking_state in [2, 3, 4]:
+                        # smoking state must be 2, 3, or 4
+                        count = np.sum(
+                            (arr2345[:,10] == black) *
+                            (arr2345[:,13] == pov) *
+                            arr2345[:, 4 + smoking_state - 1] * 
+                            (arr2345[:,15])
+                        )
+                    else:
+                        raise Exception
+                    
+                    # write list and numpy arr
+                    self.output_list_to_df.append([
+                        cy + self.start_year,
+                        black,
+                        pov,
+                        smoking_state,
+                        count,
+                    ])
 
-        # make a list to record transition probabilities
-        transition_numbers = []
+                    self.output_numpy[cy,black,pov,smoking_state - 1] = count
 
-        # now we need to construct 3 arrays which get updated 
-        # during the course of the simulation
-        # one for state {2,3,4} called arr2345
-        # another for state {1,5} called arr1
-        # another for state 6 = death called arr6
+    def set_year_last_smoked(self, in_arr2345):
+        """
+        Here we figure out the year_last_smoked variable for all cases
 
-        arr2345 = np.asarray([row for row in pop_arr 
-                  if (row[4] == 2 or row[4] == 3 or row[4] == 4 or row[4] == 5
-                  or row[3] == 2 or row[3] == 3 or row[3] == 4 or row[3] == 5)], dtype=np.float64)
-        arr1 = np.asarray([row for row in pop_arr 
-                  if (row[4] == 1 and row[3] == 1)], dtype=np.float64)
-        arr6 = None
-
-        arr2345 = self.path_to_indicator_form(arr2345)
-        arr1 = self.path_to_indicator_form(arr1)
-
-        # print(np.sum(arr2345[:,15]))
-        # print(np.sum(arr1[:,15]))
-        # print(np.sum(arr1[:,15]) + np.sum(arr2345[:,15]))
-        # print("-------------")
-
-        # Here we figure out the year_last_smoked variable for all cases
+        This is to be used for the arr2345 array from the original PATH population
+        """
 
         # for people whose last state is 3,4 the year last smoked is self.start_year - 1
-        arr2345[np.logical_or(arr2345[:,3],arr2345[:,4]),16] = self.start_year - 1
+        in_arr2345[np.logical_or(in_arr2345[:,3],in_arr2345[:,4]),16] = self.start_year - 1
 
         # for people currently in groups 3,4 the year last smoked is self.start_year
-        arr2345[np.logical_or(arr2345[:,6],arr2345[:,7]),16] = self.start_year
+        in_arr2345[np.logical_or(in_arr2345[:,6],in_arr2345[:,7]),16] = self.start_year
 
         # for people whose last state is 5, the year last smoked is self.start_year - 1
         # we are treating ecig users the same as smokers here
-        arr2345[np.sum(arr2345[:,1:5], axis=1) == 0,16] = self.start_year
+        in_arr2345[np.sum(in_arr2345[:,1:5], axis=1) == 0,16] = self.start_year
 
         # for people whose current state is 5, the year last smoked is self.start_year
-        arr2345[np.sum(arr2345[:,5:8], axis=1) == 0,16] = self.start_year
+        in_arr2345[np.sum(in_arr2345[:,5:8], axis=1) == 0,16] = self.start_year
 
-        # for people in group 2 last state AND this state
-        # if initialization age is 1 then year last smoked is self.year_last_smoked_for_ia1 + self.start_year - age
-        ind = np.logical_and(arr2345[:,2], arr2345[:,5], arr2345[:,8]).astype(np.bool_)
-        arr2345[ind,16] = self.age_last_smoked_for_ia1 + self.start_year - arr2345[ind, 11]
+        ### for people in group 2 last state AND this state
+        # if initialization age is 1 then year last smoked is self.age_last_smoked_for_ia1 + self.start_year - age
+        ind = np.logical_and(in_arr2345[:,2], in_arr2345[:,5], in_arr2345[:,8]).astype(np.bool_)
+        in_arr2345[ind,16] = self.age_last_smoked_for_ia1 + self.start_year - in_arr2345[ind, 11]
 
-        # if initialization age is 2 for former smokers then year last smoked is randomly chosen between start_age and current age
-        ind = np.logical_and(arr2345[:,2], arr2345[:,5], arr2345[:,9]).astype(np.bool_)
-        age_started = np.maximum(18, arr2345[ind,14]) # use starting age if available, otherwise use 18
-        to_multiply_rand = arr2345[ind, 11] - age_started + 1 - 1e-8
-        to_add_after_multiply = self.start_year - arr2345[ind, 11] - 0.5 + 1e-8
-        arr2345[ind ,16] = np.round(np.random.rand(np.sum(ind)) * to_multiply_rand + to_add_after_multiply)
-                            
-        # now the population arrays are in the right format for matrix mult
-        # TODO: For experimentation, lets keep only the people that are in 
-        # a specified group
+        # if initialization age is 2 for former smokers then year last smoked is randomly chosen between start_age and current age - 2
+        ind = np.logical_and(in_arr2345[:,2], in_arr2345[:,5], in_arr2345[:,9]).astype(np.bool_)
+        age_started = np.maximum(18, in_arr2345[ind,14]) # use starting age if available, otherwise use 18
+        # doing some tricks here to select a random integer by sampling a random float
+        to_multiply_rand = (in_arr2345[ind, 11] - 2) - age_started + 1 - 1e-8
+        to_add_after_multiply = self.start_year - in_arr2345[ind, 11] - 0.5 + 1e-8
+        in_arr2345[ind ,16] = np.round(np.random.rand(np.sum(ind)) * to_multiply_rand + to_add_after_multiply)
 
-        # next step is to format the betas
+    # TODO: think of a better name for this function
+    def random_select_arg_multinomial(self, probs):
+        """"
+        Takes in probs
+        returns indicator for next state
+        in a format like: [0,0,1,0,0]
+        return array has same length as input array "probs"
+        """
+        chance = np.random.rand(probs.shape[0], 1)
+        forward = np.concatenate([chance < np.sum(probs[:,:i], axis=1)[:,np.newaxis] for i in range(1, probs.shape[1] + 1)], axis=1)
+        backward = np.concatenate([(1 - chance) < np.sum(probs[:,i:], axis=1)[:,np.newaxis] for i in range(probs.shape[1])], axis=1)
+        arg_selection = forward * backward
+        return arg_selection
+
+    def get_augmented_betas(self):
         beta_2345_aug = np.concatenate([
             self.beta2345,
             np.zeros((len(self.beta2345), 3)),
@@ -461,80 +504,100 @@ class Simulation(object):
         beta_2345_aug = np.transpose(beta_2345_aug)
         beta_1_aug = np.transpose(beta_1_aug)
 
-        # define a function for writing out data for a current year      
-        def write_data(cy, arr2345, arr1, arr6, out_list, out_np):
-            """
-            Given the current year, arrays with the current state,
-            and output destination arrays, write data accordingly
-            """
-            # probably a way to do this without loops but idk
-            for black in [0,1]:
-                for pov in [0,1]:
-                    for smoking_state in [1,2,3,4,5,6]: 
-                        # determine count of people which fit the descriptors
-                        # note smoking state == 6 means dead
-                        count = None
-                        if smoking_state == 5 and arr2345 is None:
-                            count = 0
-                        elif smoking_state == 5:
-                            count = np.sum(
-                                (arr2345[:,10] == black) *
-                                (arr2345[:,13] == pov) *
-                                (arr2345[:,5] == 0) * 
-                                (arr2345[:,6] == 0) * 
-                                (arr2345[:,7] == 0) * 
-                                (arr2345[:,15])
-                            )
-                        elif smoking_state == 6 and arr6 is not None:
-                            count = np.sum(
-                                (arr6[:,10] == black) *
-                                (arr6[:,13] == pov) *
-                                (arr6[:,15])
-                            )
-                        elif smoking_state == 6 and arr6 is None:
-                            count = 0
-                        elif smoking_state == 1 and arr1 is None:
-                            count = 0
-                        elif smoking_state == 1:
-                            count = np.sum(
-                                (arr1[:,10] == black) *
-                                (arr1[:,13] == pov) *
-                                (arr1[:,15])
-                            )
-                        elif arr2345 is None and arr1 is None:
-                            count = 0
-                        elif arr2345 is None:
-                            count=0
-                        elif smoking_state in [2, 3, 4]:
-                            # smoking state must be 2, 3, or 4
-                            count = np.sum(
-                                (arr2345[:,10] == black) *
-                                (arr2345[:,13] == pov) *
-                                arr2345[:, 4 + smoking_state - 1] * 
-                                (arr2345[:,15])
-                            )
-                        else:
-                            raise Exception
-                        
-                        # write list and numpy arr
-                        out_list.append([
-                            cy + self.start_year,
-                            black,
-                            pov,
-                            smoking_state,
-                            count,
-                        ])
+        return beta_2345_aug, beta_1_aug
 
-                        out_np[cy,black,pov,smoking_state - 1] = count
+    def simulate(self):
+
+        """
+        Calling this function causes 1 run of the simulation to happen.
+        Results are written according to save_xl_fname and save_np_fname.
+        Optionally, transition numbers are written to save_transition_np_fname.
+
+        Args:
+            None
+        
+        Output:
+            self.output: the data written out from the simulation
+        """
+        pop_arr = self.pop_df.to_numpy(dtype=np.float64)
+
+        # here we will re-randomize the ages according to the agegrp variable
+        # agegrp is at index 0, age is at index 9 at this stage
+        for row in pop_arr:
+            agegrp = row[0]        
+            if agegrp == 40:
+                row[9] = np.random.randint(59,65)
+            else:
+                row[9] = 18.0 + agegrp + np.random.randint(0, 10)
+
+        # now we need to construct 3 arrays which get updated 
+        # during the course of the simulation
+        # one for state {2,3,4,5} called arr2345
+        # another for state 1 called arr1
+        # another for state 6 = death called arr6
+        arr2345 = np.asarray([row for row in pop_arr 
+                  if (row[4] == 2 or row[4] == 3 or row[4] == 4 or row[4] == 5
+                  or row[3] == 2 or row[3] == 3 or row[3] == 4 or row[3] == 5)], dtype=np.float64)
+        arr1 = np.asarray([row for row in pop_arr 
+                  if (row[4] == 1 and row[3] == 1)], dtype=np.float64)
+        arr6 = None
+
+        # These arrays need to be in "indicator form"
+        # So that they can be mulitplied with the betas
+        # during the logistic regression inference
+        arr2345 = self.path_to_indicator_form(arr2345)
+        arr1 = self.path_to_indicator_form(arr1)
+
+        # Here we figure out the year_last_smoked variable for all cases
+        # This variable is used for death rates calculation
+        # might also be used for health checks (not yet implemented)
+        self.set_year_last_smoked(arr2345)
+
+        # next step is to format the betas as a nice clean matrix
+        # that can just be multiplied against the covariate matrix
+        beta_2345_aug, beta_1_aug = self.get_augmented_betas()
+
+        """
+        FURTHER CONSTRUCTING THE POPULATION
+
+        At this stage, the PATH population represents demographics from 
+        the time of wave 1 (2014), except for the previous and current
+        smoking states, which come from wave 2 (2015) and wave 3 (2016).
+        All the other covariates such as age, poverty, black, etc. are
+        representative of 2014. We can fix this by aging the population
+        twice, adding in cohorts of 18-year-olds as we go.
+
+        We also wish to calibrate this population so that the initial
+        smoking rate matches the rates given by NHIS data. 
+
+        To accomplish these goals, we do the following:
+        1. Simulate death for the population (remove some people from the population)
+           using their wave 2 tobacco use states as if they were the wave 1 states
+        2. Age the population by one year
+        3. Incoporate a cohort of 18-year-olds from wave 2 (2015) into the simulation
+        4. Simulate death for the population using wave 2 states again
+           NOTE: wave 2 18-year-olds have wave 1 and wave 2 state data
+        5. Simulate a tobacco use state for wave 3 for the wave 2 18-year-olds
+        6. Age the population by one year
+        7. Incorporate the wave 3 18-year-olds into the population
+        8. Remove individuals who are 65 and 66 years old
+        9. Calibrate the smoking rates to match NHIS data
+
+        At this point we have a good starting population for the main simulation loop 
+        """
+
+        # Simulate death for 1 year using wave 2 rates:
+
 
         # Next step is to loop over years, updating the pop each year
+        # this is the main loop, simulating years 2016 - 2066
         # and writing out the stats
         # cy means current year
         for cy in range(self.end_year - self.start_year):
             """
             Main loop and crux of the program.
             Steps:
-                0. add cohorts of 18 yearolds if needed
+                0. add cohorts of 18-year-olds if needed
                 1. write data to appropriate structures to be saved for later analysis
                 2. kill people according to life tables
                 3. update people's smoking statuses
@@ -542,51 +605,19 @@ class Simulation(object):
                 4. update people's ages
             """
 
-            # print(cy)
-            # pops = None
-            # if arr6 is None:
-            #     pops = (np.sum(arr2345[:,15]), np.sum(arr1[:,15]))
-            # else:
-            #     pops = (np.sum(arr2345[:,15]), np.sum(arr1[:,15]), np.sum(arr6[:,15]))
-            # print(pops)
-            # print(sum(pops))
-            # print("-------------")
-            # print("num state=1", np.sum(arr1[:,15]))
-            # print("num state=2", np.sum(arr2345[:,15] * arr2345[:,5]))
-            # print("num state=3", np.sum(arr2345[:,15] * arr2345[:,6]))
-            # print("num state=4", np.sum(arr2345[:,15] * arr2345[:,7]))
-            # print("num state=5", np.sum(arr2345[:,15] * (arr2345[:,5] == 0) * (arr2345[:,6] == 0) * (arr2345[:,7] == 0)))
-            # print("num state=3 and black == sex == 0", np.sum(arr2345[:,15] * arr2345[:,6] * (arr2345[:,14] == 0) * (arr2345[:,11] == 0)))
-            # print("num state=3 and black == sex == 0", np.sum(arr2345[:,15] * arr2345[:,6] * (arr2345[:,14] == 1) * (arr2345[:,11] == 0)))
-            # print("num state=3 and black == sex == 0", np.sum(arr2345[:,15] * arr2345[:,6] * (arr2345[:,14] == 0) * (arr2345[:,11] == 1)))
-            # print("num state=3 and black == sex == 0", np.sum(arr2345[:,15] * arr2345[:,6] * (arr2345[:,14] == 1) * (arr2345[:,11] == 1)))
-
-            # print(np.count_nonzero(arr2345[:,14]))
-
-
             # insert new cohort(s) of 18yearolds
-            if self.cohorts is not None and cy < len(self.cohort_adding_pattern):
-                # print("adding cohort")
-                cohort_idx = max(self.start_year + cy, 2016)
-                cohort_idx = min(cohort_idx, 2018)
+            # only do this for the first X years
+            if self.cohorts is not None and self.start_year + cy < self.last_year_cohort_added:
+                cohort_idx = max(self.start_year + cy, 2015)
+                cohort_idx = min(cohort_idx, 2017)
                 cohort_arr = self.cohorts[cohort_idx]
                 c2345, c1 = self.cohort_to_indicator_form(cohort_arr)
-                for _i in range(self.cohort_adding_pattern[cy]):
-                    arr2345 = np.concatenate([arr2345, c2345], axis=0)
-                    arr1 = np.concatenate([arr1, c1], axis=0)
+                arr2345 = np.concatenate([arr2345, c2345], axis=0)
+                arr1 = np.concatenate([arr1, c1], axis=0)
 
-            # print("after cohorts", cy)
-            # pops = None
-            # if arr6 is None:
-            #     pops = (np.sum(arr2345[:,15]), np.sum(arr1[:,15]))
-            # else:
-            #     pops = (np.sum(arr2345[:,15]), np.sum(arr1[:,15]), np.sum(arr6[:,15]))
-            # print(pops)
-            # print(sum(pops))
-            # print("-------------")
             # start by writing out the appropriate data
 
-            write_data(cy, arr2345, arr1, arr6, self.output_list_to_df, self.output_numpy)
+            self.write_data(cy, arr2345, arr1, arr6)
 
             # continue by randomly determining if people
             # will die this year
@@ -641,15 +672,6 @@ class Simulation(object):
                 assert(np.min(arr1_death_rates) >= 0)
 
             # determine deaths in arr2345
-            # print("before deaths", cy)
-            # pops = None
-            # if arr6 is None:
-            #     pops = (np.sum(arr2345[:,15]), np.sum(arr1[:,15]))
-            # else:
-            #     pops = (np.sum(arr2345[:,15]), np.sum(arr1[:,15]), np.sum(arr6[:,15]))
-            # print(pops)
-            # print(sum(pops))
-            # print("-------------")
 
             chance_2345 = np.random.rand(len(arr2345)).astype(np.float64)
             deaths_2345 = arr2345_death_rates > chance_2345
@@ -785,8 +807,6 @@ class Simulation(object):
                 not_menthol_smokers = arr2345[:,6] == 0
                 assert(len(probs2345) == sum(are_menthol_smokers) + sum(not_menthol_smokers))
                 assert(len(probs2345) == len(arr2345))
-                # print(probs2345[are_menthol_smokers][:10])
-                # print(probs2345[not_menthol_smokers][:10])
 
                 if self.long_term_option == 1:
                     # print("long term option", self.long_term_option)
@@ -804,10 +824,6 @@ class Simulation(object):
                     tmp /= np.sum(tmp, axis=1).reshape((-1,1))
                     probs2345[not_menthol_smokers] = tmp
 
-                    # print("after ban effect")
-                    # print(probs2345[are_menthol_smokers][:10])
-                    # print(probs2345[not_menthol_smokers][:10])
-                    # quit()
                 elif self.long_term_option == 2:
                     # print("long term option", self.long_term_option)
                     tmp = probs2345[are_menthol_smokers]
@@ -866,22 +882,10 @@ class Simulation(object):
             # update current state, old state
 
             # need to think of a better name for this function
-            def random_select_arg_multinomial(probs):
-                """"
-                Takes in probs
-                returns indicator for next state
-                in a format like: [0,0,1,0,0]
-                return array has same length as input array "probs"
-                """
-                chance = np.random.rand(probs.shape[0], 1)
-                forward = np.concatenate([chance < np.sum(probs[:,:i], axis=1)[:,np.newaxis] for i in range(1, probs.shape[1] + 1)], axis=1)
-                backward = np.concatenate([(1 - chance) < np.sum(probs[:,i:], axis=1)[:,np.newaxis] for i in range(probs.shape[1])], axis=1)
-                arg_selection = forward * backward
-                return arg_selection
 
-            new_states2345 = random_select_arg_multinomial(probs2345)[:,:] # (s1, s2, s3, s4, s5)
+            new_states2345 = self.random_select_arg_multinomial(probs2345)[:,:] # (s1, s2, s3, s4, s5)
             # print(new_states2345.shape) # (9508, 5)
-            new_states1 = random_select_arg_multinomial(probs1)[:,:].astype(np.float64) # (s1, s2, s3, s4, s5)
+            new_states1 = self.random_select_arg_multinomial(probs1)[:,:].astype(np.float64) # (s1, s2, s3, s4, s5)
 
             # leaving_1 is True for each row in new_states1 which has chosen to transition to 2, 3, 4, or 5
             leaving_1 = np.sum(new_states1[:,1:], axis=1).astype(np.bool_)
@@ -925,7 +929,6 @@ class Simulation(object):
             # 21 5->5
 
             if self.save_transition_np_fname is not None:
-                # transition_numbers.append([
                 to_append = [
                     np.sum(arr1[:,15][np.logical_not(leaving_1)]),
                     np.sum(arr1[:,15][np.logical_and(arr1[:,1], arr1[:,5])]),
@@ -951,9 +954,9 @@ class Simulation(object):
                     np.sum(arr2345[:,15][np.logical_and(np.sum(arr2345[:,1:5], axis=1) == 0, np.sum(arr2345[:,5:8], axis=1) == 0)]), #state 5 indicator not explictly tracked
                 ]
                 to_append[4] = np.sum(arr1[:,15]) - np.sum(to_append[:4])
-                transition_numbers.append([to_append])
+                self.output_transitions.append([to_append])
 
-            # move people from arr1 to arr2345 and vice versa as needed
+            # move people from arr1 to arr2345 if they became a smoker
 
             tmp_to_2345 = arr1[leaving_1]
             arr1 = arr1[np.logical_not(leaving_1)]
@@ -988,17 +991,11 @@ class Simulation(object):
             arr2345[:,9] = (arr2345[:,8] == 0) * (arr2345[:,12] >= 18)
             arr2345[:,8] = (arr2345[:,12] < 18).astype(int).astype(np.float64)
 
-            # print("endfor", cy)
-            # pops = (np.sum(arr2345[:,15]), np.sum(arr1[:,15]), np.sum(arr6[:,15]))
-            # print(pops)
-            # print(sum(pops))
-            # print("-------------")
-
             # endfor 
 
         # write data one last time for the final year
 
-        write_data(self.end_year - self.start_year, arr2345, arr1, arr6, self.output_list_to_df, self.output_numpy)
+        self.write_data(self.end_year - self.start_year, arr2345, arr1, arr6)
 
         # writeout the results of the simulation to disk
         if self.save_xl_fname:
@@ -1012,6 +1009,6 @@ class Simulation(object):
         
         if self.save_transition_np_fname:
             fname = os.path.join(self.save_dir, 'transition_numbers/', os.path.basename(self.save_transition_np_fname) + '_' + self.now_str + '.npy')
-            np.save(fname, np.asarray(transition_numbers))
+            np.save(fname, np.asarray(self.output_transitions))
 
         return self.output_list_to_df, self.output_numpy

@@ -1,10 +1,11 @@
 from mimetypes import init
-from re import I
+from re import A, I
 from matplotlib import use
 import pandas as pd
 import numpy as np
 import os
-from datetime import date, datetime
+from datetime import datetime
+from typing import Tuple
 
 class Simulation(object):
 
@@ -116,7 +117,10 @@ class Simulation(object):
                  short_term_option: int=1,
                  long_term_option: int=1,
                  menthol_ban_year: int=2016,
-                 initiation_rate_decrease: float=0.0):
+                 target_initial_smoking_proportion: float=0.15,
+                 initiation_rate_decrease: float=0.0,
+                 cessation_rate_factor: float=1.0,
+                 ):
         
         self.pop_df = pop_df
         self.life_tables = life_tables # dict int (year), int (sex) -> array
@@ -153,6 +157,9 @@ class Simulation(object):
         self.menthol_ban_year = menthol_ban_year
         self.initiation_rate_decrease = initiation_rate_decrease
         assert(0.0 <= initiation_rate_decrease <= 1.0)
+        self.cessation_rate_factor = cessation_rate_factor 
+        self.target_initial_smoking_percentage = target_initial_smoking_proportion
+        assert(0.0 <= target_initial_smoking_proportion <= 1.0) # proportion between 0 and 1
 
         if self.menthol_ban:
             assert(short_term_option in [1,2,3,4])
@@ -172,7 +179,7 @@ class Simulation(object):
         
         return
     
-    def person_to_death_rate(self, p, ever_smoker: bool, current_year: int):
+    def person_to_death_rate(self, p, ever_smoker: bool, current_year: int, use_previous_smoking_state: bool=False):
         """
         Takes a person array as encoded in self.simulate() and returns their chance of dying using adjusted death rates
 
@@ -222,56 +229,176 @@ class Simulation(object):
         RRfc = self.former_smoker_RR[3, sex] # use the RR for former smokers who have not smoked in 10-19 years by default
 
         # separate into cases depending on the smoking status of the person
-        if p[5]:
-            # former smoker
-            # need to update RRfc
-            years_since_smoked = current_year - int(p[16])
-            try:
-                assert(years_since_smoked >= 0)
-            except AssertionError:
-                print(years_since_smoked)
-                print(p[16])
-                print(current_year)
-                raise
-            assert(isinstance(years_since_smoked, int))
+        if use_previous_smoking_state:
+            if p[2]:
+                # former smoker
+                # need to update RRfc
+                years_since_smoked = current_year - int(p[16])
+                try:
+                    assert(years_since_smoked >= 0)
+                except AssertionError:
+                    print(years_since_smoked)
+                    print(p[16])
+                    print(current_year)
+                    raise
+                assert(isinstance(years_since_smoked, int))
 
-            if years_since_smoked < 2:
-                RRfc = self.former_smoker_RR[0, sex] # < 2 years since smoked
-            elif years_since_smoked < 5:
-                RRfc = self.former_smoker_RR[1, sex] # 2-4 years since smoked
-            elif years_since_smoked < 10:
-                RRfc = self.former_smoker_RR[2, sex] # 5-9 years since smoked
-            elif years_since_smoked < 20:
-                RRfc = self.former_smoker_RR[3, sex] # 10-19 years since smoked
-            elif years_since_smoked < 30:
-                RRfc = self.former_smoker_RR[4, sex] # 20-29 years since smoked
-            elif years_since_smoked < 40:
-                RRfc = self.former_smoker_RR[5, sex] # 30-39 years since smoked
-            elif years_since_smoked < 50:
-                RRfc = self.former_smoker_RR[6, sex] # 40-49 years since smoked
+                if years_since_smoked < 2:
+                    RRfc = self.former_smoker_RR[0, sex] # < 2 years since smoked
+                elif years_since_smoked < 5:
+                    RRfc = self.former_smoker_RR[1, sex] # 2-4 years since smoked
+                elif years_since_smoked < 10:
+                    RRfc = self.former_smoker_RR[2, sex] # 5-9 years since smoked
+                elif years_since_smoked < 20:
+                    RRfc = self.former_smoker_RR[3, sex] # 10-19 years since smoked
+                elif years_since_smoked < 30:
+                    RRfc = self.former_smoker_RR[4, sex] # 20-29 years since smoked
+                elif years_since_smoked < 40:
+                    RRfc = self.former_smoker_RR[5, sex] # 30-39 years since smoked
+                elif years_since_smoked < 50:
+                    RRfc = self.former_smoker_RR[6, sex] # 40-49 years since smoked
+                else:
+                    RRfc = self.former_smoker_RR[7, sex] # >= 50 years since smoked
+
+                # fdr -> (adr RRfc * RRsn)/(pn + ps * RRsn + pf * RRfc * RRsn)
+                
+                return (adr * RRfc * RRsn) / (pn + ps * RRsn + pf * RRfc * RRsn)
+            elif p[3] or p[4] or ever_smoker:
+                # current smoker
+                # sdr == (adr * RRsn)/(pn + ps * RRsn + pf * RRfc * RRsn)
+                
+                res = min((adr * RRsn) / (pn + ps * RRsn + pf * RRfc * RRsn), 1.0)
+                return res
             else:
-                RRfc = self.former_smoker_RR[7, sex] # >= 50 years since smoked
+                # don't check `ever_smoker` here since we are using
+                # previous smoking states, not current states
+                # never smoker
+                # ndr -> adr/(pn + ps RRsn + pf RRfc RRsn)
 
-            # fdr -> (adr RRfc * RRsn)/(pn + ps * RRsn + pf * RRfc * RRsn)
+                return adr / (pn + ps * RRsn + pf * RRfc * RRsn)
             
-            return (adr * RRfc * RRsn) / (pn + ps * RRsn + pf * RRfc * RRsn)
-        elif p[6] or p[7] or ever_smoker:
-            # current smoker
-            # sdr == (adr * RRsn)/(pn + ps * RRsn + pf * RRfc * RRsn)
-            
-            res = min((adr * RRsn) / (pn + ps * RRsn + pf * RRfc * RRsn), 1.0)
-            return res
-        elif not ever_smoker:
-            # never smoker
-            # ndr -> adr/(pn + ps RRsn + pf RRfc RRsn)
+        else:
+            if p[5]:
+                # former smoker
+                # need to update RRfc
+                years_since_smoked = current_year - int(p[16])
+                try:
+                    assert(years_since_smoked >= 0)
+                except AssertionError:
+                    print(years_since_smoked)
+                    print(p[16])
+                    print(current_year)
+                    raise
+                assert(isinstance(years_since_smoked, int))
 
-            return adr / (pn + ps * RRsn + pf * RRfc * RRsn)
+                if years_since_smoked < 2:
+                    RRfc = self.former_smoker_RR[0, sex] # < 2 years since smoked
+                elif years_since_smoked < 5:
+                    RRfc = self.former_smoker_RR[1, sex] # 2-4 years since smoked
+                elif years_since_smoked < 10:
+                    RRfc = self.former_smoker_RR[2, sex] # 5-9 years since smoked
+                elif years_since_smoked < 20:
+                    RRfc = self.former_smoker_RR[3, sex] # 10-19 years since smoked
+                elif years_since_smoked < 30:
+                    RRfc = self.former_smoker_RR[4, sex] # 20-29 years since smoked
+                elif years_since_smoked < 40:
+                    RRfc = self.former_smoker_RR[5, sex] # 30-39 years since smoked
+                elif years_since_smoked < 50:
+                    RRfc = self.former_smoker_RR[6, sex] # 40-49 years since smoked
+                else:
+                    RRfc = self.former_smoker_RR[7, sex] # >= 50 years since smoked
+
+                # fdr -> (adr RRfc * RRsn)/(pn + ps * RRsn + pf * RRfc * RRsn)
+                
+                return (adr * RRfc * RRsn) / (pn + ps * RRsn + pf * RRfc * RRsn)
+            elif p[6] or p[7] or ever_smoker:
+                # current smoker
+                # sdr == (adr * RRsn)/(pn + ps * RRsn + pf * RRfc * RRsn)
+                
+                res = min((adr * RRsn) / (pn + ps * RRsn + pf * RRfc * RRsn), 1.0)
+                return res
+            elif not ever_smoker:
+                # never smoker
+                # ndr -> adr/(pn + ps RRsn + pf RRfc RRsn)
+
+                return adr / (pn + ps * RRsn + pf * RRfc * RRsn)
 
         print("While trying to determine person's death chance, they didn't fit into any smoking category")
         raise Exception
 
         return None
     
+    def simulate_deaths(self, in_arr2345, in_arr1, in_arr6, current_year: int, use_previous_smoking_state: bool=False):
+        """
+        
+        """
+
+        # probability of death for each person
+        arr2345_death_rates = None
+        arr1_death_rates = None
+
+        # the following conditional affects the "death_chances" arrays
+        if self.use_adjusted_death_rates:
+            arr2345_death_rates = np.array([self.person_to_death_rate(row, ever_smoker=True, current_year=current_year, use_previous_smoking_state=use_previous_smoking_state) for row in in_arr2345]).astype(np.float64)
+            arr1_death_rates = np.array([self.person_to_death_rate(row, ever_smoker=False, current_year=current_year, use_previous_smoking_state=use_previous_smoking_state) for row in in_arr1]).astype(np.float64)
+
+            assert(np.max(arr2345_death_rates) <= 1)
+            assert(np.min(arr2345_death_rates) >= 0)
+            assert(np.max(arr1_death_rates) <= 1)
+            assert(np.min(arr1_death_rates) >= 0)
+        else:
+            print("Not using death rates adjusted for smokers, formersmokers, nonsmokers.")
+
+            life_table_year = min(self.start_year - 2, 2018)
+            life_table_year = max(life_table_year, 2016)
+
+            adr_male = self.life_tables[life_table_year][0].astype(np.float64)
+            adr_female = self.life_tables[life_table_year][1].astype(np.float64)
+
+            arr2345_ages = in_arr2345[:, 11].astype(np.int32)
+            arr2345_ages = list(arr2345_ages.clip(min=0, max = 100)) # does not overwrite arr2345
+
+            arr1_ages = in_arr1[:, 11].astype(np.int32)
+            arr1_ages = list(arr1_ages.clip(min=0, max = 100))
+
+            arr2345_death_chances_male = adr_male[arr2345_ages] 
+            arr2345_death_chances_female = adr_female[arr2345_ages]
+
+            arr1_death_chances_male = adr_male[arr1_ages] 
+            arr1_death_chances_female = adr_female[arr1_ages]
+
+            arr2345_death_rates = in_arr2345[:,12] * arr2345_death_chances_female + (1 - in_arr2345[:,12]) * arr2345_death_chances_male
+            arr1_death_rates = in_arr1[:,12] * arr1_death_chances_female + (1 - in_arr1[:,12]) * arr1_death_chances_male
+
+            assert(np.max(arr2345_death_rates) <= 1)
+            assert(np.min(arr2345_death_rates) >= 0)
+            assert(np.max(arr1_death_rates) <= 1)
+            assert(np.min(arr1_death_rates) >= 0)
+
+        # determine deaths in arr2345
+        chance_2345 = np.random.rand(len(in_arr2345)).astype(np.float64)
+        deaths_2345 = arr2345_death_rates > chance_2345
+
+        if in_arr6 is None:
+            in_arr6 = np.copy(in_arr2345)[deaths_2345]
+        else:
+            in_arr6 = np.concatenate([in_arr6, np.copy(in_arr2345)[deaths_2345]], axis=0, dtype=np.float64)
+
+        in_arr2345 = in_arr2345[np.logical_not(deaths_2345)]
+
+        # determine deaths in arr1
+        chance_1 = np.random.rand(len(in_arr1)).astype(np.float64)
+        deaths_1 = arr1_death_rates > chance_1
+
+        if in_arr6 is None:
+            in_arr6 = np.copy(in_arr1)[deaths_1]
+        else:
+            in_arr6 = np.concatenate([in_arr6, np.copy(in_arr1)[deaths_1]], axis=0, dtype=np.float64)
+        
+        in_arr1 = in_arr1[np.logical_not(deaths_1)]
+
+        return in_arr2345, in_arr1, in_arr6
+
     def path_to_indicator_form(self, a):
         """
         futher processing to make things into indicators that I need
@@ -373,6 +500,10 @@ class Simulation(object):
         return arr2345, arr1
 
     def zero_a_prob(self, probs, idx):
+        """
+        probs sum to one along the 2nd (last axis)
+        zero a column while maintaining the sum-to-1 property
+        """
         probs[:,idx] = 0
         probs *= np.sum(probs, axis=1)
 
@@ -506,6 +637,301 @@ class Simulation(object):
 
         return beta_2345_aug, beta_1_aug
 
+    def get_transition_probs_from_LR(self, in_arr2345, in_arr1, in_beta_2345_aug, in_beta_1_aug):
+        
+        logits_2345 = np.matmul(in_arr2345, in_beta_2345_aug).astype(np.float64)
+        assert(logits_2345.shape[1] == 3)
+
+        logits_1 = np.matmul(in_arr1, in_beta_1_aug).astype(np.float64)
+        assert(logits_1.shape[1] == 4)
+
+        # convert logits to probabilities
+
+        exps = np.exp(logits_2345)
+        p4 = 1 / (1 + np.sum(exps, axis=1))
+        probs2345 = np.asarray([
+            np.zeros(in_arr2345.shape[0]), # p1
+            p4*exps[:,0], # p2
+            p4*exps[:,1], # p3
+            p4,           # p4
+            p4*exps[:,2], # p5
+        ], dtype=np.float64).transpose()
+
+        exps = np.exp(logits_1)
+        p4 = 1 / (1 + np.sum(exps, axis=1))
+        probs1 = np.asarray([
+            p4*exps[:,0], # p1
+            p4*exps[:,1], # p2
+            p4*exps[:,2], # p3
+            p4,           # p4
+            p4*exps[:,3], # p5
+        ], dtype=np.float64).transpose()
+
+        return probs2345, probs1
+
+    def adjust_transition_probs_according_to_menthol_ban(self, in_arr2345, in_arr1, in_probs2345, in_probs1, current_year: int):
+        """
+        
+        """
+
+        if current_year == self.menthol_ban_year - self.start_year:
+            """
+            Instantaneous menthol ban effects at year 1:
+
+            Example option:
+            Among those 25+ years, 
+                23% of menthol cigarette smokers quit smoking, 
+                44% switch of menthol cigarette smokers switch to non-menthol cigarettes (state 4), 
+                20% continue using menthol cigarettes (state 3), 
+                and 13% switch to e-cigs (state 5). 
+            Among 18-24 year olds post-ban, 
+                39% of menthol cigarette smokers quit, 
+                3% continue using menthol cigarettes, 
+                18% switch to e-cigs, 
+                and 40% switch to non-menthol cigarettes. 
+
+            I am going to implement this by overridding the transistion probabilities
+            of people this year. I will take the probability of becoming a menthol smoker
+            and distribute it among the 5 probabilities according to the proportions
+            given above
+            """
+
+            probs_25minus = None
+            probs_25plus = None
+
+            option1 = np.array([0.,0.23,0.20,0.44,0.13])
+            option2 = np.array([0.,0.27,0.19,0.42,0.12])
+            option3 = np.array([0.,0.18,0.22,0.46,0.14])
+            option4 = np.array([0.,0.25,0.15,0.46,0.14])
+            options = [option1, option2, option3, option4]
+
+            if self.short_term_option == 1:
+                print("short term option", self.short_term_option)
+                probs_25minus = options[1]
+                probs_25plus = options[0]
+            elif self.short_term_option == 2:
+                print("short term option", self.short_term_option)
+                probs_25minus = options[1]
+                probs_25plus = options[1]
+            elif self.short_term_option == 3:
+                print("short term option", self.short_term_option)
+                probs_25minus = options[0]
+                probs_25plus = options[2]
+            elif self.short_term_option == 4:
+                print("short term option", self.short_term_option)
+                probs_25minus = options[3]
+                probs_25plus = options[3]
+
+            assert(sum(probs_25minus) == 1.)
+            assert(sum(probs_25plus) == 1.)
+
+            are_25plus_2345 = in_arr2345[:,11] >= 25
+            are_25minus_2345 = np.logical_not(are_25plus_2345)
+            are_25plus_1 = in_arr1[:,11] >= 25
+            are_25minus_1 = np.logical_not(are_25plus_1)
+
+            for i in [1, 3, 4]:
+                in_probs2345[are_25plus_2345,i] += probs_25plus[i] * in_probs2345[are_25plus_2345,2]
+                in_probs2345[are_25minus_2345,i] += probs_25minus[i] * in_probs2345[are_25minus_2345,2]
+
+                in_probs1[are_25plus_1,i] += probs_25plus[i] * in_probs1[are_25plus_1,2]
+                in_probs1[are_25minus_1,i] += probs_25minus[i] * in_probs1[are_25minus_1,2]
+            
+            in_probs2345[are_25plus_2345,2] *= probs_25plus[2]
+            in_probs2345[are_25minus_2345,2] *= probs_25minus[2]
+            in_probs1[are_25plus_1,2] *= probs_25plus[2]
+            in_probs1[are_25minus_1,2] *= probs_25minus[2]
+        elif current_year > self.menthol_ban_year - self.start_year:
+            """
+            Long term menthol ban effects
+
+            Prob that menthol smoker "remains the same" is reduced
+            Where those menthol smokers that would have stayed the same
+            go varies from option to option. Either quit (former smoker) or nonmenthol smoker
+
+            All non-menthol smokers have 0 chance to transition to menthol smoking
+            the other probabilites are scaled so that all sum to 1.0
+            """
+            are_menthol_smokers = in_arr2345[:,6] == 1
+            not_menthol_smokers = in_arr2345[:,6] == 0
+            assert(len(in_probs2345) == sum(are_menthol_smokers) + sum(not_menthol_smokers))
+            assert(len(in_probs2345) == len(in_arr2345))
+
+            if self.long_term_option == 1:
+                # print("long term option", self.long_term_option)
+                # the probability that menthol smokers "remain the same"
+                # is reduced
+                tmp = in_probs2345[are_menthol_smokers]
+                tmp[:,1] += tmp[:,2] * 0.5 
+                tmp[:,2] *= 0.5
+                in_probs2345[are_menthol_smokers] = tmp
+
+                # the probability that non- (menthol smokers) become
+                # menthol smokers vanishes.
+                tmp = in_probs2345[not_menthol_smokers]
+                tmp[:,2] = 0
+                tmp /= np.sum(tmp, axis=1).reshape((-1,1))
+                in_probs2345[not_menthol_smokers] = tmp
+
+            elif self.long_term_option == 2:
+                # print("long term option", self.long_term_option)
+                tmp = in_probs2345[are_menthol_smokers]
+                tmp[:,1] += tmp[:,2] * 0.75
+                tmp[:,2] *= 0.25
+                in_probs2345[are_menthol_smokers] = tmp
+
+                # the probability that non- (menthol smokers) become
+                # menthol smokers vanishes.
+                tmp = in_probs2345[not_menthol_smokers]
+                tmp[:,2] = 0
+                tmp /= np.sum(tmp, axis=1).reshape((-1,1))
+                in_probs2345[not_menthol_smokers] = tmp
+            elif self.long_term_option == 3:
+                # print("long term option", self.long_term_option)
+                tmp = in_probs2345[are_menthol_smokers]
+                tmp[:,3] += tmp[:,2] * 0.5 
+                tmp[:,2] *= 0.5
+                in_probs2345[are_menthol_smokers] = tmp
+
+                # the probability that non- (menthol smokers) become
+                # menthol smokers vanishes.
+                tmp = in_probs2345[not_menthol_smokers]
+                tmp[:,2] = 0
+                tmp /= np.sum(tmp, axis=1).reshape((-1,1))
+                in_probs2345[not_menthol_smokers] = tmp
+            elif self.long_term_option == 4:
+                # print("long term option", self.long_term_option)
+                tmp = in_probs2345[are_menthol_smokers]
+                tmp[:,3] += tmp[:,2] * 0.25
+                tmp[:,2] *= 0.75
+                in_probs2345[are_menthol_smokers] = tmp
+
+                # the probability that non- (menthol smokers) become
+                # menthol smokers vanishes.
+                tmp = in_probs2345[not_menthol_smokers]
+                tmp[:,2] = 0
+                tmp /= np.sum(tmp, axis=1).reshape((-1,1))
+                in_probs2345[not_menthol_smokers] = tmp
+        
+        return in_probs2345, in_probs1
+
+    def adjust_transition_probs_according_to_initiation_cessation_params(self, in_probs2345, in_probs1, initiation_reduction: float=0.0, cessation_factor: float=1.0):
+
+        """
+        Tune probabilities according to initiation_rate_decrease
+        parameter. The initiation_rate_decrease param tells you by
+        how much to deacrease the initiation rate, that is,
+        1 - (probability of a never smoker staying a never smoker).
+
+        Ex. If the probability of a person making the transition 1->1
+        is .8, and we decrease the initiation rate by 30%, then the
+        new probability of that person making the 1->1 is .86. 
+
+        TODO: cessation factor
+        """
+        
+        if initiation_reduction > 0:
+            in_probs1[:,0] += (1 - in_probs1[:,0]) * self.initiation_rate_decrease
+            in_probs1[:,1:] -= in_probs1[:,1:] * self.initiation_rate_decrease
+
+        # TODO: logic for cessation parameter
+
+        return in_probs2345, in_probs1
+
+    def record_transitions(self, in_arr2345, in_arr1, in_leaving_1):
+        """ 
+        we can calculate the number who died also from these numbers
+        Here's what the list means
+        list index | number of people in transition
+        0 1->1
+        1 1->2
+        2 1->3
+        3 1->4
+        4 1->5
+        5 2->2
+        6 2->3
+        7 2->4
+        8 2->5
+        9 3->2
+        10 3->3
+        11 3->4
+        12 3->5
+        13 4->2
+        14 4->3
+        15 4->4
+        16 4->5
+        17 5->1
+        18 5->2
+        19 5->3
+        20 5->4
+        21 5->5
+        """
+
+        to_append = [
+            np.sum(in_arr1[:,15][np.logical_not(in_leaving_1)]),
+            np.sum(in_arr1[:,15][np.logical_and(in_arr1[:,1], in_arr1[:,5])]),
+            np.sum(in_arr1[:,15][np.logical_and(in_arr1[:,1], in_arr1[:,6])]),
+            np.sum(in_arr1[:,15][np.logical_and(in_arr1[:,1], in_arr1[:,7])]),
+            0, # placeholder -- fill in after this 
+            np.sum(in_arr2345[:,15][np.logical_and(in_arr2345[:,2], in_arr2345[:,5])]),
+            np.sum(in_arr2345[:,15][np.logical_and(in_arr2345[:,2], in_arr2345[:,6])]),
+            np.sum(in_arr2345[:,15][np.logical_and(in_arr2345[:,2], in_arr2345[:,7])]),
+            np.sum(in_arr2345[:,15][np.logical_and(in_arr2345[:,2], np.sum(in_arr2345[:,5:8], axis=1) == 0)]), #state 5 indicator not explictly tracked
+            np.sum(in_arr2345[:,15][np.logical_and(in_arr2345[:,3], in_arr2345[:,5])]),
+            np.sum(in_arr2345[:,15][np.logical_and(in_arr2345[:,3], in_arr2345[:,6])]),
+            np.sum(in_arr2345[:,15][np.logical_and(in_arr2345[:,3], in_arr2345[:,7])]),
+            np.sum(in_arr2345[:,15][np.logical_and(in_arr2345[:,3], np.sum(in_arr2345[:,5:8], axis=1) == 0)]), #state 5 indicator not explictly tracked
+            np.sum(in_arr2345[:,15][np.logical_and(in_arr2345[:,4], in_arr2345[:,5])]),
+            np.sum(in_arr2345[:,15][np.logical_and(in_arr2345[:,4], in_arr2345[:,6])]),
+            np.sum(in_arr2345[:,15][np.logical_and(in_arr2345[:,4], in_arr2345[:,7])]),
+            np.sum(in_arr2345[:,15][np.logical_and(in_arr2345[:,4], np.sum(in_arr2345[:,5:8], axis=1) == 0)]), #state 5 indicator not explictly tracked
+            0, # 5 -> 1 not allowed
+            np.sum(in_arr2345[:,15][np.logical_and(np.sum(in_arr2345[:,1:5], axis=1) == 0, in_arr2345[:,5])]),
+            np.sum(in_arr2345[:,15][np.logical_and(np.sum(in_arr2345[:,1:5], axis=1) == 0, in_arr2345[:,6])]),
+            np.sum(in_arr2345[:,15][np.logical_and(np.sum(in_arr2345[:,1:5], axis=1) == 0, in_arr2345[:,7])]),
+            np.sum(in_arr2345[:,15][np.logical_and(np.sum(in_arr2345[:,1:5], axis=1) == 0, np.sum(in_arr2345[:,5:8], axis=1) == 0)]), #state 5 indicator not explictly tracked
+        ]
+        to_append[4] = np.sum(in_arr1[:,15]) - np.sum(to_append[:4])
+        return to_append
+
+    def calibrate_smoking_percentage(self, in_arr1: np.ndarray, in_arr2345: np.ndarray, target_smoker_percentage: float) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Calibrates the weights of a population so that the percentage of smokers
+        is equal to some target percentage.
+
+        Takes the indicator-form numpy arrays to represent the population.
+
+        Returns a tuple of the modified indicator-form numpy arrays.
+
+        Input arrays are not mutated!
+        """
+
+        smokers_arr = np.sum(in_arr2345[:,6:8], axis=1, dtype=bool)
+        nonsmokers_2345_arr = np.logical_not(smokers_arr)
+
+        # sanity check
+        assert(np.sum(smokers_arr) + np.sum(nonsmokers_2345_arr) == len(in_arr2345))
+        
+        smoker_weight = np.sum(in_arr2345[:,15][smokers_arr])
+        nonsmoker_weight = np.sum(in_arr1[:,15]) + np.sum(in_arr2345[:,15][nonsmokers_2345_arr])
+        total_weight = np.sum(in_arr2345[:,15]) + np.sum(in_arr1[:,15])
+
+        # sanity check
+        # some tolerance, these might not be exact due to rounding error
+        assert(abs(smoker_weight + nonsmoker_weight - total_weight) < 1e-2)
+
+        smoker_weight_factor = total_weight * target_smoker_percentage / smoker_weight
+        nonsmoker_weight_factor = (total_weight - total_weight * target_smoker_percentage) / nonsmoker_weight
+
+        out_arr1 = np.copy(in_arr1)
+        out_arr2345 = np.copy(in_arr2345)
+
+        out_arr1[:,15] *= nonsmoker_weight_factor
+        out_arr2345[:,15][nonsmokers_2345_arr] *= nonsmoker_weight_factor
+        out_arr2345[:,15][smokers_arr] *= smoker_weight_factor
+
+        return out_arr2345, out_arr1
+
     def simulate(self):
 
         """
@@ -586,13 +1012,101 @@ class Simulation(object):
         At this point we have a good starting population for the main simulation loop 
         """
 
-        # Simulate death for 1 year using wave 2 rates:
+        ### Simulate death for 1 year using wave 2 rates:
 
+        arr2345, arr1, arr6 = self.simulate_deaths(
+            arr2345, 
+            arr1, 
+            arr6, 
+            current_year=self.start_year - 2, 
+            use_previous_smoking_state=True,
+            )
 
-        # Next step is to loop over years, updating the pop each year
-        # this is the main loop, simulating years 2016 - 2066
-        # and writing out the stats
-        # cy means current year
+        ### age up the population
+
+        arr2345[:,11] += 1
+        arr1[:,11] += 1
+
+        ### incorporate cohort of 18-year-olds from wave 2
+        ### don't actually add them yet, because death rates will be calculated slightly differently
+
+        cohort_idx = 2015 # wave 2
+        cohort_arr = self.cohorts[cohort_idx]
+        c2345, c1 = self.cohort_to_indicator_form(cohort_arr)
+
+        ### deaths using wave 2 smoking states
+
+        arr2345, arr1, arr6 = self.simulate_deaths(
+            arr2345, 
+            arr1, 
+            arr6, 
+            current_year=self.start_year - 1, 
+            use_previous_smoking_state=True,
+            )
+        
+        c2345, c1, arr6 = self.simulate_deaths(
+            c2345,
+            c1,
+            arr6,
+            current_year=self.start_year - 1,
+            use_previous_smoking_state=False,
+        )
+
+        ### Simulate wave 3 smoking states for the wave 2 18-year-olds cohort
+
+        probsc1, probsc2345 = self.get_transition_probs_from_LR(c2345, c1, beta_2345_aug, beta_1_aug)
+        new_states2345 = self.random_select_arg_multinomial(probsc2345)[:,:]
+        new_states1 = self.random_select_arg_multinomial(probsc1)[:,:].astype(np.float64)
+        leaving_1 = np.sum(new_states1[:,1:], axis=1).astype(np.bool_)
+        c2345[:,2:5] = c2345[:,5:8]
+        c2345[:,1] = np.zeros(c2345.shape[0]) # no more previous never smokers
+        c2345[:,5:8] = new_states2345[:,1:-1] 
+        c1[:,5:8] = new_states1[:,1:-1]
+        tmp_to_2345 = c1[leaving_1]
+        c1 = c1[np.logical_not(leaving_1)]
+        c2345 = np.concatenate([c2345, tmp_to_2345], axis=0, dtype=np.float64)
+        # update year_last_smoked variable
+        # smokers currently in state 3,4 get their last year updated
+        c2345[np.logical_or(c2345[:,6],c2345[:,7]),16] = 2015 # this is for 2015 (wave 2)
+        # smokers currently in state 5 get their last year updated
+        c2345[np.sum(c2345[:,5:8], axis=1) == 0,16] = 2015
+        # people who made the transition 1->2 get their last year updated
+        # this is after switching, so anybody who made that transition will be in arr2345
+        c2345[np.logical_and(c2345[:,1], c2345[:,5]),16] = 2015
+
+        ### Now actually add the cohort
+
+        arr2345 = np.concatenate([arr2345, c2345], axis=0)
+        arr1 = np.concatenate([arr1, c1], axis=0)
+
+        ### Age the population
+
+        arr2345[:,11] += 1
+        arr1[:,11] += 1
+
+        ### Incorporate Wave 3 (2016) 18-year-olds
+
+        cohort_idx = 2016 # wave 2
+        cohort_arr = self.cohorts[cohort_idx]
+        c2345, c1 = self.cohort_to_indicator_form(cohort_arr)
+        arr2345 = np.concatenate([arr2345, c2345], axis=0)
+        arr1 = np.concatenate([arr1, c1], axis=0)
+
+        ### Remove individuals who are 65 or older
+
+        arr2345 = arr2345[arr2345[:,11] < 65]
+        arr1 = arr1[arr2345[:,11] < 65]
+
+        # get snapshot of population
+
+        ### Calibrate the population to NHIS smoking rate
+
+        """
+        Next step is to loop over years, updating the pop each year
+        this is the main loop, simulating years 2016 - 2066
+        and writing out the stats
+        cy means current year
+        """
         for cy in range(self.end_year - self.start_year):
             """
             Main loop and crux of the program.
@@ -603,6 +1117,7 @@ class Simulation(object):
                 3. update people's smoking statuses
                     a. make sure to take care of hassmoked flag
                 4. update people's ages
+                5. update initation age group
             """
 
             # insert new cohort(s) of 18yearolds
@@ -621,270 +1136,25 @@ class Simulation(object):
 
             # continue by randomly determining if people
             # will die this year
-            # first we will define some variables to use later
             
-            # male = 0
-            # female = 1
+            arr2345, arr1, arr6 = self.simulate_deaths(arr2345, arr1, arr6, current_year=cy)
 
-            # probability of death for each person
-            arr2345_death_rates = None
-            arr1_death_rates = None
+            # next we get the transition probabilities for people
 
-            # the following conditional affects the "death_chances" arrays
-            if self.use_adjusted_death_rates:
-                arr2345_death_rates = np.array([self.person_to_death_rate(row, ever_smoker=True, current_year=cy+self.start_year) for row in arr2345]).astype(np.float64)
-                arr1_death_rates = np.array([self.person_to_death_rate(row, ever_smoker=False, current_year=cy+self.start_year) for row in arr1]).astype(np.float64)
+            probs1, probs2345 = self.get_transition_probs_from_LR(arr2345, arr1, beta_2345_aug, beta_1_aug)
 
-                # print(np.min(arr2345_death_rates), np.max(arr2345_death_rates))
-                assert(np.max(arr2345_death_rates) <= 1)
-                assert(np.min(arr2345_death_rates) >= 0)
-                assert(np.max(arr1_death_rates) <= 1)
-                assert(np.min(arr1_death_rates) >= 0)
-            else:
-                print("Not using death rates adjusted for smokers, formersmokers, nonsmokers.")
+            # next we augment transition probabilities according to menthol ban effects
 
-                life_table_year = min(self.start_year + cy, 2018)
-                life_table_year = max(life_table_year, 2016)
+            if self.menthol_ban:
+                probs2345, probs1 = self.adjust_transition_probs_according_to_menthol_ban(arr2345, arr1, probs2345, probs1, current_year=cy)
 
-                adr_male = self.life_tables[life_table_year][0].astype(np.float64)
-                adr_female = self.life_tables[life_table_year][1].astype(np.float64)
+            # next we augment transition probabilities according to initiation and cessation parameters
 
-                arr2345_ages = arr2345[:, 11].astype(np.int32)
-                arr2345_ages = list(arr2345_ages.clip(min=0, max = 100)) # does not overwrite arr2345
-                arr2345_sex = arr2345[:, 12] # 0 = male, 1 = female
-
-                arr1_ages = arr1[:, 11].astype(np.int32)
-                arr1_ages = list(arr1_ages.clip(min=0, max = 100))
-                arr1_sex = arr1[:, 12] # 0 = male, 1 = female
-
-                arr2345_death_chances_male = adr_male[arr2345_ages] 
-                arr2345_death_chances_female = adr_female[arr2345_ages]
-
-                arr1_death_chances_male = adr_male[arr1_ages] 
-                arr1_death_chances_female = adr_female[arr1_ages]
-
-                arr2345_death_rates = arr2345[:,12] * arr2345_death_chances_female + (1 - arr2345[:,12]) * arr2345_death_chances_male
-                arr1_death_rates = arr1[:,12] * arr1_death_chances_female + (1 - arr1[:,12]) * arr1_death_chances_male
-
-                assert(np.max(arr2345_death_rates) <= 1)
-                assert(np.min(arr2345_death_rates) >= 0)
-                assert(np.max(arr1_death_rates) <= 1)
-                assert(np.min(arr1_death_rates) >= 0)
-
-            # determine deaths in arr2345
-
-            chance_2345 = np.random.rand(len(arr2345)).astype(np.float64)
-            deaths_2345 = arr2345_death_rates > chance_2345
-
-            if arr6 is None:
-                arr6 = np.copy(arr2345)[deaths_2345]
-            else:
-                arr6 = np.concatenate([arr6, np.copy(arr2345)[deaths_2345]], axis=0, dtype=np.float64)
-
-            arr2345 = arr2345[np.logical_not(deaths_2345)]
-
-            # determine deaths in arr1
-            chance_1 = np.random.rand(len(arr1)).astype(np.float64)
-            deaths_1 = arr1_death_rates > chance_1
-
-            if arr6 is None:
-                arr6 = np.copy(arr1)[deaths_1]
-            else:
-                arr6 = np.concatenate([arr6, np.copy(arr1)[deaths_1]], axis=0, dtype=np.float64)
-            
-            arr1 = arr1[np.logical_not(deaths_1)]
-
-
-            # next we update the smoking status of people
-            logits_2345 = np.matmul(arr2345, beta_2345_aug).astype(np.float64)
-            assert(logits_2345.shape[1] == 3)
-
-            logits_1 = np.matmul(arr1, beta_1_aug).astype(np.float64)
-            assert(logits_1.shape[1] == 4)
-
-            # convert logits to probabilities
-
-            exps = np.exp(logits_2345)
-            p4 = 1 / (1 + np.sum(exps, axis=1))
-            probs2345 = np.asarray([
-                np.zeros(arr2345.shape[0]), # p1
-                p4*exps[:,0], # p2
-                p4*exps[:,1], # p3
-                p4,           # p4
-                p4*exps[:,2], # p5
-            ], dtype=np.float64).transpose()
-
-            exps = np.exp(logits_1)
-            p4 = 1 / (1 + np.sum(exps, axis=1))
-            probs1 = np.asarray([
-                p4*exps[:,0], # p1
-                p4*exps[:,1], # p2
-                p4*exps[:,2], # p3
-                p4,           # p4
-                p4*exps[:,3], # p5
-            ], dtype=np.float64).transpose()
-
-            """
-            Instantaneous menthol ban effects at year 1:
-
-            Example option:
-            Among those 25+ years, 
-                23% of menthol cigarette smokers quit smoking, 
-                44% switch of menthol cigarette smokers switch to non-menthol cigarettes (state 4), 
-                20% continue using menthol cigarettes (state 3), 
-                and 13% switch to e-cigs (state 5). 
-            Among 18-24 year olds post-ban, 
-                39% of menthol cigarette smokers quit, 
-                3% continue using menthol cigarettes, 
-                18% switch to e-cigs, 
-                and 40% switch to non-menthol cigarettes. 
-
-            I am going to implement this by overridding the transistion probabilities
-            of people this year. I will take the probability of becoming a menthol smoker
-            and distribute it among the 5 probabilities according to the proportions
-            given above
-            """
-
-            if self.menthol_ban and cy == self.menthol_ban_year - self.start_year:
-
-                probs_25minus = None
-                probs_25plus = None
-
-                option1 = np.array([0.,0.23,0.20,0.44,0.13])
-                option2 = np.array([0.,0.27,0.19,0.42,0.12])
-                option3 = np.array([0.,0.18,0.22,0.46,0.14])
-                option4 = np.array([0.,0.25,0.15,0.46,0.14])
-                options = [option1, option2, option3, option4]
-
-                if self.short_term_option == 1:
-                    print("short term option", self.short_term_option)
-                    probs_25minus = options[1]
-                    probs_25plus = options[0]
-                elif self.short_term_option == 2:
-                    print("short term option", self.short_term_option)
-                    probs_25minus = options[1]
-                    probs_25plus = options[1]
-                elif self.short_term_option == 3:
-                    print("short term option", self.short_term_option)
-                    probs_25minus = options[0]
-                    probs_25plus = options[2]
-                elif self.short_term_option == 4:
-                    print("short term option", self.short_term_option)
-                    probs_25minus = options[3]
-                    probs_25plus = options[3]
-
-                assert(sum(probs_25minus) == 1.)
-                assert(sum(probs_25plus) == 1.)
-
-                are_25plus_2345 = arr2345[:,11] >= 25
-                are_25minus_2345 = np.logical_not(are_25plus_2345)
-                are_25plus_1 = arr1[:,11] >= 25
-                are_25minus_1 = np.logical_not(are_25plus_1)
-
-                for i in [1, 3, 4]:
-                    probs2345[are_25plus_2345,i] += probs_25plus[i] * probs2345[are_25plus_2345,2]
-                    probs2345[are_25minus_2345,i] += probs_25minus[i] * probs2345[are_25minus_2345,2]
-
-                    probs1[are_25plus_1,i] += probs_25plus[i] * probs1[are_25plus_1,2]
-                    probs1[are_25minus_1,i] += probs_25minus[i] * probs1[are_25minus_1,2]
-                
-                probs2345[are_25plus_2345,2] *= probs_25plus[2]
-                probs2345[are_25minus_2345,2] *= probs_25minus[2]
-                probs1[are_25plus_1,2] *= probs_25plus[2]
-                probs1[are_25minus_1,2] *= probs_25minus[2]
-            elif self.menthol_ban and cy > self.menthol_ban_year - self.start_year:
-                """
-                Long term menthol ban effects
-
-                Prob that menthol smoker "remains the same" is reduced
-                Where those menthol smokers that would have stayed the same
-                go varies from option to option. Either quit (former smoker) or nonmenthol smoker
-
-                All non-menthol smokers have 0 chance to transition to menthol smoking
-                the other probabilites are scaled so that all sum to 1.0
-                """
-                are_menthol_smokers = arr2345[:,6] == 1
-                not_menthol_smokers = arr2345[:,6] == 0
-                assert(len(probs2345) == sum(are_menthol_smokers) + sum(not_menthol_smokers))
-                assert(len(probs2345) == len(arr2345))
-
-                if self.long_term_option == 1:
-                    # print("long term option", self.long_term_option)
-                    # the probability that menthol smokers "remain the same"
-                    # is reduced
-                    tmp = probs2345[are_menthol_smokers]
-                    tmp[:,1] += tmp[:,2] * 0.5 
-                    tmp[:,2] *= 0.5
-                    probs2345[are_menthol_smokers] = tmp
-
-                    # the probability that non- (menthol smokers) become
-                    # menthol smokers vanishes.
-                    tmp = probs2345[not_menthol_smokers]
-                    tmp[:,2] = 0
-                    tmp /= np.sum(tmp, axis=1).reshape((-1,1))
-                    probs2345[not_menthol_smokers] = tmp
-
-                elif self.long_term_option == 2:
-                    # print("long term option", self.long_term_option)
-                    tmp = probs2345[are_menthol_smokers]
-                    tmp[:,1] += tmp[:,2] * 0.75
-                    tmp[:,2] *= 0.25
-                    probs2345[are_menthol_smokers] = tmp
-
-                    # the probability that non- (menthol smokers) become
-                    # menthol smokers vanishes.
-                    tmp = probs2345[not_menthol_smokers]
-                    tmp[:,2] = 0
-                    tmp /= np.sum(tmp, axis=1).reshape((-1,1))
-                    probs2345[not_menthol_smokers] = tmp
-                elif self.long_term_option == 3:
-                    # print("long term option", self.long_term_option)
-                    tmp = probs2345[are_menthol_smokers]
-                    tmp[:,3] += tmp[:,2] * 0.5 
-                    tmp[:,2] *= 0.5
-                    probs2345[are_menthol_smokers] = tmp
-
-                    # the probability that non- (menthol smokers) become
-                    # menthol smokers vanishes.
-                    tmp = probs2345[not_menthol_smokers]
-                    tmp[:,2] = 0
-                    tmp /= np.sum(tmp, axis=1).reshape((-1,1))
-                    probs2345[not_menthol_smokers] = tmp
-                elif self.long_term_option == 4:
-                    # print("long term option", self.long_term_option)
-                    tmp = probs2345[are_menthol_smokers]
-                    tmp[:,3] += tmp[:,2] * 0.25
-                    tmp[:,2] *= 0.75
-                    probs2345[are_menthol_smokers] = tmp
-
-                    # the probability that non- (menthol smokers) become
-                    # menthol smokers vanishes.
-                    tmp = probs2345[not_menthol_smokers]
-                    tmp[:,2] = 0
-                    tmp /= np.sum(tmp, axis=1).reshape((-1,1))
-                    probs2345[not_menthol_smokers] = tmp
-
-            """
-            Tune probabilities according to initiation_rate_decrease
-            parameter. The initiation_rate_decrease param tells you by
-            how much to deacrease the initiation rate, that is,
-            1 - (probability of a never smoker staying a never smoker).
-
-            Ex. If the probability of a person making the transition 1->1
-            is .8, and we decrease the initiation rate by 30%, then the
-            new probability of that person making the 1->1 is .86. 
-            """
-            
-            if self.initiation_rate_decrease > 0:
-                probs1[:,0] += (1 - probs1[:,0]) * self.initiation_rate_decrease
-                probs1[:,1:] -= probs1[:,1:] * self.initiation_rate_decrease
+            probs2345, probs1 = self.adjust_transition_probs_according_to_initiation_cessation_params(probs2345, probs1, initiation_reduction=self.initiation_rate_decrease,)
 
             # update current state, old state
 
-            # need to think of a better name for this function
-
             new_states2345 = self.random_select_arg_multinomial(probs2345)[:,:] # (s1, s2, s3, s4, s5)
-            # print(new_states2345.shape) # (9508, 5)
             new_states1 = self.random_select_arg_multinomial(probs1)[:,:].astype(np.float64) # (s1, s2, s3, s4, s5)
 
             # leaving_1 is True for each row in new_states1 which has chosen to transition to 2, 3, 4, or 5
@@ -902,94 +1172,36 @@ class Simulation(object):
             
             # record the state transition numbers :)
 
-            # we can calculate the number who died also from these numbers
-            # Here's what the list means
-            # list index | number of people in transition
-            # 0 1->1
-            # 1 1->2
-            # 2 1->3
-            # 3 1->4
-            # 4 1->5
-            # 5 2->2
-            # 6 2->3
-            # 7 2->4
-            # 8 2->5
-            # 9 3->2
-            # 10 3->3
-            # 11 3->4
-            # 12 3->5
-            # 13 4->2
-            # 14 4->3
-            # 15 4->4
-            # 16 4->5
-            # 17 5->1
-            # 18 5->2
-            # 19 5->3
-            # 20 5->4
-            # 21 5->5
-
             if self.save_transition_np_fname is not None:
-                to_append = [
-                    np.sum(arr1[:,15][np.logical_not(leaving_1)]),
-                    np.sum(arr1[:,15][np.logical_and(arr1[:,1], arr1[:,5])]),
-                    np.sum(arr1[:,15][np.logical_and(arr1[:,1], arr1[:,6])]),
-                    np.sum(arr1[:,15][np.logical_and(arr1[:,1], arr1[:,7])]),
-                    0, # placeholder -- fill in after this 
-                    np.sum(arr2345[:,15][np.logical_and(arr2345[:,2], arr2345[:,5])]),
-                    np.sum(arr2345[:,15][np.logical_and(arr2345[:,2], arr2345[:,6])]),
-                    np.sum(arr2345[:,15][np.logical_and(arr2345[:,2], arr2345[:,7])]),
-                    np.sum(arr2345[:,15][np.logical_and(arr2345[:,2], np.sum(arr2345[:,5:8], axis=1) == 0)]), #state 5 indicator not explictly tracked
-                    np.sum(arr2345[:,15][np.logical_and(arr2345[:,3], arr2345[:,5])]),
-                    np.sum(arr2345[:,15][np.logical_and(arr2345[:,3], arr2345[:,6])]),
-                    np.sum(arr2345[:,15][np.logical_and(arr2345[:,3], arr2345[:,7])]),
-                    np.sum(arr2345[:,15][np.logical_and(arr2345[:,3], np.sum(arr2345[:,5:8], axis=1) == 0)]), #state 5 indicator not explictly tracked
-                    np.sum(arr2345[:,15][np.logical_and(arr2345[:,4], arr2345[:,5])]),
-                    np.sum(arr2345[:,15][np.logical_and(arr2345[:,4], arr2345[:,6])]),
-                    np.sum(arr2345[:,15][np.logical_and(arr2345[:,4], arr2345[:,7])]),
-                    np.sum(arr2345[:,15][np.logical_and(arr2345[:,4], np.sum(arr2345[:,5:8], axis=1) == 0)]), #state 5 indicator not explictly tracked
-                    0, # 5 -> 1 not allowed
-                    np.sum(arr2345[:,15][np.logical_and(np.sum(arr2345[:,1:5], axis=1) == 0, arr2345[:,5])]),
-                    np.sum(arr2345[:,15][np.logical_and(np.sum(arr2345[:,1:5], axis=1) == 0, arr2345[:,6])]),
-                    np.sum(arr2345[:,15][np.logical_and(np.sum(arr2345[:,1:5], axis=1) == 0, arr2345[:,7])]),
-                    np.sum(arr2345[:,15][np.logical_and(np.sum(arr2345[:,1:5], axis=1) == 0, np.sum(arr2345[:,5:8], axis=1) == 0)]), #state 5 indicator not explictly tracked
-                ]
-                to_append[4] = np.sum(arr1[:,15]) - np.sum(to_append[:4])
+                to_append = self.record_transitions(arr2345, arr1, leaving_1)
                 self.output_transitions.append([to_append])
 
             # move people from arr1 to arr2345 if they became a smoker
 
             tmp_to_2345 = arr1[leaving_1]
             arr1 = arr1[np.logical_not(leaving_1)]
-
             arr2345 = np.concatenate([arr2345, tmp_to_2345], axis=0, dtype=np.float64)
 
             # update year_last_smoked variable
+
             # smokers currently in state 3,4 get their last year updated
             arr2345[np.logical_or(arr2345[:,6],arr2345[:,7]),16] = cy
-
             # smokers currently in state 5 get their last year updated
             arr2345[np.sum(arr2345[:,5:8], axis=1) == 0,16] = cy
-
             # people who made the transition 1->2 get their last year updated
             # this is after switching, so anybody who made that transition will be in arr2345
             arr2345[np.logical_and(arr2345[:,1], arr2345[:,5]),16] = cy
 
-            # update agegrp and age params as needed
+            # increment age param
 
             arr2345[:,11] += 1
             arr1[:,11] += 1
 
-            # here is where agegrp should be updated but I'm not 
-            # going to do it just yet since
-            # we don't write it out and it doesn't matter in the simulation
-
             # update inital age for people in arr2345 (ever smokers)
-            # rules:
             # if ia=1 == 0 and and age >= 18 then ia = 2
-            # if hassmoked == 1 and age < 18 then ia = 1
+            # NOTE: never need to set ia=2 == 1 because everyone is 19 or older at this point
 
             arr2345[:,9] = (arr2345[:,8] == 0) * (arr2345[:,12] >= 18)
-            arr2345[:,8] = (arr2345[:,12] < 18).astype(int).astype(np.float64)
 
             # endfor 
 

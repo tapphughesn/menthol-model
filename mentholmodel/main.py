@@ -7,6 +7,7 @@ import os
 def main(args):
     # 0 = male
     # 1 = female
+    print("args:")
     print(args)
 
     # Get life tables
@@ -41,9 +42,10 @@ def main(args):
     fsvcsRR = pd.read_excel(os.path.join("..", "..", "smoking_prevalence", "former_smoker_mortality_vs_current_smoker.xlsx")).to_numpy()[:,1:]
 
     # Get population data
-    # pop_file_name = os.path.join("..","..","population_files_Feb8","population_file_sent_Feb8.xlsx")
+    # UNCALIBRATED
+    pop_file_name = os.path.join("..","..","population_files_Feb8","population_file_sent_Feb8.xlsx")
     # CALIBRATED
-    pop_file_name = os.path.join("..","..","Calibrated Population","Calibrated Population","PATH_Calibrate_18_64.xlsx")
+    # pop_file_name = os.path.join("..","..","Calibrated Population","Calibrated Population","PATH_Calibrate_18_64.xlsx")
 
     pop_df = pd.read_excel(pop_file_name)
 
@@ -51,20 +53,20 @@ def main(args):
     cohorts_18_dict = {}
 
     """
-    The cohorts dict will take the PATH study wave number
-    (1, 2, 3) as an index and return the cohort of 18 yearolds
+    The cohorts dict will take the year corresponding to PATH waves 1, 2, 3
+    (2015, 2016, 2017) as an index and return the cohort of 18 yearolds
     for that wave. 
     """
 
     # UNCALIBRATED
-    # cohorts_18_dict[2] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 2 fresh population profile.xlsx")).to_numpy()
-    # cohorts_18_dict[3] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 3 fresh population profile.xlsx")).to_numpy()
-    # cohorts_18_dict[4] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 4 fresh population profile.xlsx")).to_numpy()
+    cohorts_18_dict[2015] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 2 fresh population profile.xlsx")).to_numpy()
+    cohorts_18_dict[2016] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 3 fresh population profile.xlsx")).to_numpy()
+    cohorts_18_dict[2017] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 4 fresh population profile.xlsx")).to_numpy()
 
     # CALIBRATED
-    cohorts_18_dict[2015] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave2_Calibrate_18.xlsx")).to_numpy()
-    cohorts_18_dict[2016] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave3_Calibrate_18.xlsx")).to_numpy()
-    cohorts_18_dict[2017] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave4_Calibrate_18.xlsx")).to_numpy()
+    # cohorts_18_dict[2015] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave2_Calibrate_18.xlsx")).to_numpy()
+    # cohorts_18_dict[2016] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave3_Calibrate_18.xlsx")).to_numpy()
+    # cohorts_18_dict[2017] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave4_Calibrate_18.xlsx")).to_numpy()
 
     # Get logistic regression betas
     beta2345_f = os.path.join("..","..","Output_SM","Betas","Beta_Estimates_2345.xlsx")
@@ -103,7 +105,8 @@ def main(args):
                     short_term_option=1,
                     long_term_option=1,
                     menthol_ban_year = 2021,
-                    initiation_rate_decrease=0,
+                    target_initial_smoking_proportion=0.15,
+                    initiation_rate_decrease=0.0,
                     )
         s.simulate()
     

@@ -37,4 +37,4 @@ def calibrate_smoking_percentage(in_arr1: np.ndarray, in_arr2345: np.ndarray, ta
     out_arr2345[:,15][nonsmokers_2345_arr] *= nonsmoker_weight_factor
     out_arr2345[:,15][smokers_arr] *= smoker_weight_factor
 
-    return out_arr1, out_arr2345
+    return out_arr2345, out_arr1

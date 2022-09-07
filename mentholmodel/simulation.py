@@ -149,6 +149,7 @@ class Simulation(object):
         self.output_numpy = np.zeros((end_year - start_year + 1, 2, 2, 6))
         self.output_transitions = []
         self.now_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
+        print(f"timestamp for this simulation object: {self.now_str}")
         self.menthol_ban = menthol_ban
         self.short_term_option = short_term_option
         self.long_term_option = long_term_option
@@ -159,7 +160,7 @@ class Simulation(object):
         assert(0.0 <= initiation_rate_decrease <= 1.0)
         self.cessation_rate_factor = cessation_rate_factor 
         self.target_initial_smoking_percentage = target_initial_smoking_proportion
-        assert(0.0 <= target_initial_smoking_proportion <= 1.0) # proportion between 0 and 1
+        assert(0.0 <= target_initial_smoking_proportion <= 1.0) # proportion should be between 0 and 1
 
         if self.menthol_ban:
             assert(short_term_option in [1,2,3,4])
@@ -267,8 +268,7 @@ class Simulation(object):
                 # current smoker
                 # sdr == (adr * RRsn)/(pn + ps * RRsn + pf * RRfc * RRsn)
                 
-                res = min((adr * RRsn) / (pn + ps * RRsn + pf * RRfc * RRsn), 1.0)
-                return res
+                return min((adr * RRsn) / (pn + ps * RRsn + pf * RRfc * RRsn), 1.0)
             else:
                 # don't check `ever_smoker` here since we are using
                 # previous smoking states, not current states
@@ -326,8 +326,6 @@ class Simulation(object):
         print("While trying to determine person's death chance, they didn't fit into any smoking category")
         raise Exception
 
-        return None
-    
     def simulate_deaths(self, in_arr2345, in_arr1, in_arr6, current_year: int, use_previous_smoking_state: bool=False):
         """
         
@@ -441,8 +439,9 @@ class Simulation(object):
         ], axis=1, dtype=np.float64)
         return a
     
-    def cohort_to_indicator_form(self, c):
+    def cohort_to_indicator_form(self, c, current_year: int=2016):
         # get it in path form (each row a person)
+        # with columns like the path population spreadsheet
         # then use path_to_indicator_form
 
         path_form_arr = np.concatenate([ 
@@ -472,18 +471,20 @@ class Simulation(object):
         arr2345 = self.path_to_indicator_form(arr2345)
         arr1 = self.path_to_indicator_form(arr1)
 
-        # for people whose last state is 3,4 the year last smoked is self.start_year - 1
-        arr2345[np.logical_or(arr2345[:,3],arr2345[:,4]),16] = self.start_year - 1
+        # assign the last year smoked
+
+        # for people whose last state is 3,4 the year last smoked is current_year - 1
+        arr2345[np.logical_or(arr2345[:,3],arr2345[:,4]),16] = current_year - 1
 
         # for people currently in groups 3,4 the year last smoked is self.start_year
-        arr2345[np.logical_or(arr2345[:,6],arr2345[:,7]),16] = self.start_year
+        arr2345[np.logical_or(arr2345[:,6],arr2345[:,7]),16] = current_year
 
         # for people whose last state is 5, the year last smoked is self.start_year - 1
         # we are treating ecig users the same as smokers here
-        arr2345[np.sum(arr2345[:,1:5], axis=1) == 0,16] = self.start_year
+        arr2345[np.sum(arr2345[:,1:5], axis=1) == 0,16] = current_year - 1
 
         # for people whose current state is 5, the year last smoked is self.start_year
-        arr2345[np.sum(arr2345[:,5:8], axis=1) == 0,16] = self.start_year
+        arr2345[np.sum(arr2345[:,5:8], axis=1) == 0,16] = current_year
 
         # for people in group 2 last state AND this state
         # if initialization age is 1 then year last smoked is self.year_last_smoked_for_ia1 + self.start_year - age
@@ -492,9 +493,9 @@ class Simulation(object):
 
         # if initialization age is 2 for former smokers then year last smoked is randomly chosen between start_age and current age
         ind = np.logical_and(arr2345[:,2], arr2345[:,5], arr2345[:,9]).astype(np.bool_)
-        age_started = np.maximum(18, arr2345[ind,14]) # use starting age if available, otherwise use 18
+        age_started = np.maximum(16, arr2345[ind,14]) # use starting age if available, otherwise use 16
         to_multiply_rand = arr2345[ind, 11] - age_started + 1 - 1e-8
-        to_add_after_multiply = self.start_year - arr2345[ind, 11] - 0.5 + 1e-8
+        to_add_after_multiply = current_year - arr2345[ind, 11] - 0.5 + 1e-8
         arr2345[ind ,16] = np.round(np.random.rand(np.sum(ind)) * to_multiply_rand + to_add_after_multiply)
 
         return arr2345, arr1
@@ -572,7 +573,7 @@ class Simulation(object):
 
                     self.output_numpy[cy,black,pov,smoking_state - 1] = count
 
-    def set_year_last_smoked(self, in_arr2345):
+    def set_year_last_smoked(self, in_arr2345, current_year: int=2016):
         """
         Here we figure out the year_last_smoked variable for all cases
 
@@ -580,30 +581,32 @@ class Simulation(object):
         """
 
         # for people whose last state is 3,4 the year last smoked is self.start_year - 1
-        in_arr2345[np.logical_or(in_arr2345[:,3],in_arr2345[:,4]),16] = self.start_year - 1
+        in_arr2345[np.logical_or(in_arr2345[:,3],in_arr2345[:,4]),16] = current_year - 1
 
         # for people currently in groups 3,4 the year last smoked is self.start_year
-        in_arr2345[np.logical_or(in_arr2345[:,6],in_arr2345[:,7]),16] = self.start_year
+        in_arr2345[np.logical_or(in_arr2345[:,6],in_arr2345[:,7]),16] = current_year 
 
         # for people whose last state is 5, the year last smoked is self.start_year - 1
         # we are treating ecig users the same as smokers here
-        in_arr2345[np.sum(in_arr2345[:,1:5], axis=1) == 0,16] = self.start_year
+        in_arr2345[np.sum(in_arr2345[:,1:5], axis=1) == 0,16] = current_year - 1
 
         # for people whose current state is 5, the year last smoked is self.start_year
-        in_arr2345[np.sum(in_arr2345[:,5:8], axis=1) == 0,16] = self.start_year
+        in_arr2345[np.sum(in_arr2345[:,5:8], axis=1) == 0,16] = current_year
 
         ### for people in group 2 last state AND this state
         # if initialization age is 1 then year last smoked is self.age_last_smoked_for_ia1 + self.start_year - age
         ind = np.logical_and(in_arr2345[:,2], in_arr2345[:,5], in_arr2345[:,8]).astype(np.bool_)
-        in_arr2345[ind,16] = self.age_last_smoked_for_ia1 + self.start_year - in_arr2345[ind, 11]
+        in_arr2345[ind,16] = self.age_last_smoked_for_ia1 + current_year - in_arr2345[ind, 11]
 
         # if initialization age is 2 for former smokers then year last smoked is randomly chosen between start_age and current age - 2
         ind = np.logical_and(in_arr2345[:,2], in_arr2345[:,5], in_arr2345[:,9]).astype(np.bool_)
         age_started = np.maximum(18, in_arr2345[ind,14]) # use starting age if available, otherwise use 18
         # doing some tricks here to select a random integer by sampling a random float
-        to_multiply_rand = (in_arr2345[ind, 11] - 2) - age_started + 1 - 1e-8
+        to_multiply_rand = (in_arr2345[ind, 11] - 1) - age_started + 1 - 1e-8
         to_add_after_multiply = self.start_year - in_arr2345[ind, 11] - 0.5 + 1e-8
         in_arr2345[ind ,16] = np.round(np.random.rand(np.sum(ind)) * to_multiply_rand + to_add_after_multiply)
+
+        return in_arr2345
 
     # TODO: think of a better name for this function
     def random_select_arg_multinomial(self, probs):
@@ -894,7 +897,7 @@ class Simulation(object):
         to_append[4] = np.sum(in_arr1[:,15]) - np.sum(to_append[:4])
         return to_append
 
-    def calibrate_smoking_percentage(self, in_arr1: np.ndarray, in_arr2345: np.ndarray, target_smoker_percentage: float) -> Tuple[np.ndarray, np.ndarray]:
+    def calibrate_smoking_percentage(self, in_arr2345: np.ndarray, in_arr1: np.ndarray, target_smoker_percentage: float) -> Tuple[np.ndarray, np.ndarray]:
         """
         Calibrates the weights of a population so that the percentage of smokers
         is equal to some target percentage.
@@ -977,7 +980,7 @@ class Simulation(object):
         # Here we figure out the year_last_smoked variable for all cases
         # This variable is used for death rates calculation
         # might also be used for health checks (not yet implemented)
-        self.set_year_last_smoked(arr2345)
+        self.set_year_last_smoked(arr2345, current_year=2014)
 
         # next step is to format the betas as a nice clean matrix
         # that can just be multiplied against the covariate matrix
@@ -1054,7 +1057,7 @@ class Simulation(object):
 
         ### Simulate wave 3 smoking states for the wave 2 18-year-olds cohort
 
-        probsc1, probsc2345 = self.get_transition_probs_from_LR(c2345, c1, beta_2345_aug, beta_1_aug)
+        probsc2345, probsc1 = self.get_transition_probs_from_LR(c2345, c1, beta_2345_aug, beta_1_aug)
         new_states2345 = self.random_select_arg_multinomial(probsc2345)[:,:]
         new_states1 = self.random_select_arg_multinomial(probsc1)[:,:].astype(np.float64)
         leaving_1 = np.sum(new_states1[:,1:], axis=1).astype(np.bool_)
@@ -1065,7 +1068,7 @@ class Simulation(object):
         tmp_to_2345 = c1[leaving_1]
         c1 = c1[np.logical_not(leaving_1)]
         c2345 = np.concatenate([c2345, tmp_to_2345], axis=0, dtype=np.float64)
-        # update year_last_smoked variable
+        # update year_last_smoked variable (column index 16)
         # smokers currently in state 3,4 get their last year updated
         c2345[np.logical_or(c2345[:,6],c2345[:,7]),16] = 2015 # this is for 2015 (wave 2)
         # smokers currently in state 5 get their last year updated
@@ -1095,11 +1098,28 @@ class Simulation(object):
         ### Remove individuals who are 65 or older
 
         arr2345 = arr2345[arr2345[:,11] < 65]
-        arr1 = arr1[arr2345[:,11] < 65]
+        arr1 = arr1[arr1[:,11] < 65]
+
+        # rewrite year_last_smoked variable for the current year
+
+        arr2345 = self.set_year_last_smoked(arr2345, current_year=self.start_year)
 
         # get snapshot of population
+        np.save("../../misc/arr2345_uncalibrated", arr2345)
+        np.save("../../misc/arr1_uncalibrated", arr1)
 
         ### Calibrate the population to NHIS smoking rate
+
+        arr2345, arr1 = self.calibrate_smoking_percentage(
+            arr2345, 
+            arr1, 
+            target_smoker_percentage=self.target_initial_smoking_percentage,
+            )
+
+        # get snapshot of population
+        np.save("../../misc/arr2345_calibrated", arr2345)
+        np.save("../../misc/arr1_calibrated", arr1)
+        quit()
 
         """
         Next step is to loop over years, updating the pop each year
@@ -1137,11 +1157,11 @@ class Simulation(object):
             # continue by randomly determining if people
             # will die this year
             
-            arr2345, arr1, arr6 = self.simulate_deaths(arr2345, arr1, arr6, current_year=cy)
+            arr2345, arr1, arr6 = self.simulate_deaths(arr2345, arr1, arr6, current_year=cy + self.start_year)
 
             # next we get the transition probabilities for people
 
-            probs1, probs2345 = self.get_transition_probs_from_LR(arr2345, arr1, beta_2345_aug, beta_1_aug)
+            probs2345, probs1 = self.get_transition_probs_from_LR(arr2345, arr1, beta_2345_aug, beta_1_aug)
 
             # next we augment transition probabilities according to menthol ban effects
 

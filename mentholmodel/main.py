@@ -86,6 +86,11 @@ def main(args):
     # print(pop_arr[0,:])
     # quit()
 
+    # our magic smoking percentage for calibration
+    # path to the magic file I'm using:
+    # /Users/nick/Documents/Gillings_work/nhis_data/NHIS_smoker_proportions./NHIS_State_age/NHIS_State_age/NHIS_state_age18_64.xlsx
+
+    NHIS_smoking_percentage = 0.151316
 
     for _ in range(args.number_replications):
         s = Simulation(pop_df=pop_df, 
@@ -105,7 +110,7 @@ def main(args):
                     short_term_option=1,
                     long_term_option=1,
                     menthol_ban_year = 2021,
-                    target_initial_smoking_proportion=0.15,
+                    target_initial_smoking_proportion=NHIS_smoking_percentage,
                     initiation_rate_decrease=0.0,
                     )
         s.simulate()

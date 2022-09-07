@@ -119,7 +119,7 @@ class Simulation(object):
                  menthol_ban_year: int=2016,
                  target_initial_smoking_proportion: float=0.15,
                  initiation_rate_decrease: float=0.0,
-                 cessation_rate_factor: float=1.0,
+                 continuation_reduction: float=1.0,
                  ):
         
         self.pop_df = pop_df
@@ -158,7 +158,7 @@ class Simulation(object):
         self.menthol_ban_year = menthol_ban_year
         self.initiation_rate_decrease = initiation_rate_decrease
         assert(0.0 <= initiation_rate_decrease <= 1.0)
-        self.cessation_rate_factor = cessation_rate_factor 
+        self.continuation_reduction = continuation_reduction
         self.target_initial_smoking_percentage = target_initial_smoking_proportion
         assert(0.0 <= target_initial_smoking_proportion <= 1.0) # proportion should be between 0 and 1
 
@@ -818,26 +818,37 @@ class Simulation(object):
         
         return in_probs2345, in_probs1
 
-    def adjust_transition_probs_according_to_initiation_cessation_params(self, in_probs2345, in_probs1, initiation_reduction: float=0.0, cessation_factor: float=1.0):
+    def adjust_transition_probs_according_to_initiation_cessation_params(self, in_probs2345, in_probs1):
 
         """
         Tune probabilities according to initiation_rate_decrease
-        parameter. The initiation_rate_decrease param tells you by
+        and cessation_rate_factor parameters. 
+        
+        The initiation_rate_decrease param tells you by
         how much to deacrease the initiation rate, that is,
         1 - (probability of a never smoker staying a never smoker).
+
+        The cessation_factor param tells you by how much to multiply
+        the cessation probability, i.e. the probability that people 
+        transition into group 2 (former smokers). "Reducing continuation"
+        is semantically equivalent to "increasing cessation."
 
         Ex. If the probability of a person making the transition 1->1
         is .8, and we decrease the initiation rate by 30%, then the
         new probability of that person making the 1->1 is .86. 
 
-        TODO: cessation factor
+        Ex. If the probability of a person making the transition 3->2
+        has probability 0.1 and the continuation rate is decreased by 30%
+        then the new probability of making the transition 3->2 is .37.
         """
         
-        if initiation_reduction > 0:
+        if self.initiation_rate_decrease > 0:
             in_probs1[:,0] += (1 - in_probs1[:,0]) * self.initiation_rate_decrease
             in_probs1[:,1:] -= in_probs1[:,1:] * self.initiation_rate_decrease
 
-        # TODO: logic for cessation parameter
+        if self.continuation_reduction > 0:
+            in_probs2345[:,0] += (1 - in_probs2345[:,0]) * self.continuation_reduction
+            in_probs2345[:,1:] -= in_probs2345[:,1:] * self.continuation_reduction
 
         return in_probs2345, in_probs1
 
@@ -1105,8 +1116,8 @@ class Simulation(object):
         arr2345 = self.set_year_last_smoked(arr2345, current_year=self.start_year)
 
         # get snapshot of population
-        np.save("../../misc/arr2345_uncalibrated", arr2345)
-        np.save("../../misc/arr1_uncalibrated", arr1)
+        # np.save("../../misc/arr2345_uncalibrated", arr2345)
+        # np.save("../../misc/arr1_uncalibrated", arr1)
 
         ### Calibrate the population to NHIS smoking rate
 
@@ -1117,9 +1128,9 @@ class Simulation(object):
             )
 
         # get snapshot of population
-        np.save("../../misc/arr2345_calibrated", arr2345)
-        np.save("../../misc/arr1_calibrated", arr1)
-        quit()
+        # np.save("../../misc/arr2345_calibrated", arr2345)
+        # np.save("../../misc/arr1_calibrated", arr1)
+        # quit()
 
         """
         Next step is to loop over years, updating the pop each year
@@ -1170,7 +1181,7 @@ class Simulation(object):
 
             # next we augment transition probabilities according to initiation and cessation parameters
 
-            probs2345, probs1 = self.adjust_transition_probs_according_to_initiation_cessation_params(probs2345, probs1, initiation_reduction=self.initiation_rate_decrease,)
+            probs2345, probs1 = self.adjust_transition_probs_according_to_initiation_cessation_params(probs2345, probs1)
 
             # update current state, old state
 

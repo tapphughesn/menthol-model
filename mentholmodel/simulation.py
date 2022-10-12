@@ -17,7 +17,7 @@ class Simulation(object):
         smoking state
     where each number in the array is the count of people who belong to these categories
 
-    This will also be written out as a dataframe with columns
+    This will also be written out as a pandas dataframe (excel spreadsheet) with columns
         year, race, poverty, smoking state, count
 
     There are two logistic regression models:
@@ -33,7 +33,7 @@ class Simulation(object):
 
     Need to transform ints into indicators (booleans)
 
-    We have 6 states:
+    We have 6 states in this simulation:
         1 -> never smoker
         2 -> former smoker
         3 -> menthol smoker
@@ -119,7 +119,7 @@ class Simulation(object):
                  menthol_ban_year: int=2016,
                  target_initial_smoking_proportion: float=0.15,
                  initiation_rate_decrease: float=0.0,
-                 continuation_reduction: float=1.0,
+                 continuation_rate_decrease: float=0.0,
                  ):
         
         self.pop_df = pop_df
@@ -158,7 +158,8 @@ class Simulation(object):
         self.menthol_ban_year = menthol_ban_year
         self.initiation_rate_decrease = initiation_rate_decrease
         assert(0.0 <= initiation_rate_decrease <= 1.0)
-        self.continuation_reduction = continuation_reduction
+        self.continuation_rate_decrease = continuation_rate_decrease
+        assert(0.0 <= continuation_rate_decrease <= 1.0)
         self.target_initial_smoking_percentage = target_initial_smoking_proportion
         assert(0.0 <= target_initial_smoking_proportion <= 1.0) # proportion should be between 0 and 1
 
@@ -518,6 +519,7 @@ class Simulation(object):
             for pov in [0,1]:
                 for smoking_state in [1,2,3,4,5,6]: 
                     # determine count of people which fit the descriptors
+                    # count is weighted
                     # note smoking state == 6 means dead
                     count = None
                     if smoking_state == 5 and arr2345 is None:
@@ -611,7 +613,7 @@ class Simulation(object):
     # TODO: think of a better name for this function
     def random_select_arg_multinomial(self, probs):
         """"
-        Takes in probs
+        Takes in probs which are like [0.1, 0.2, 0.3, 0.2, 0.2] -- sum to 1
         returns indicator for next state
         in a format like: [0,0,1,0,0]
         return array has same length as input array "probs"
@@ -846,9 +848,10 @@ class Simulation(object):
             in_probs1[:,0] += (1 - in_probs1[:,0]) * self.initiation_rate_decrease
             in_probs1[:,1:] -= in_probs1[:,1:] * self.initiation_rate_decrease
 
-        if self.continuation_reduction > 0:
-            in_probs2345[:,0] += (1 - in_probs2345[:,0]) * self.continuation_reduction
-            in_probs2345[:,1:] -= in_probs2345[:,1:] * self.continuation_reduction
+        # the first column of in_probs2345 is all zeros
+        if self.continuation_rate_decrease > 0:
+            in_probs2345[:,1] += (1 - in_probs2345[:,1]) * self.continuation_rate_decrease
+            in_probs2345[:,2:] -= in_probs2345[:,2:] * self.continuation_rate_decrease
 
         return in_probs2345, in_probs1
 
@@ -1023,7 +1026,7 @@ class Simulation(object):
         8. Remove individuals who are 65 and 66 years old
         9. Calibrate the smoking rates to match NHIS data
 
-        At this point we have a good starting population for the main simulation loop 
+        After these steps, we have a good starting population for the main simulation loop 
         """
 
         ### Simulate death for 1 year using wave 2 rates:
@@ -1043,6 +1046,7 @@ class Simulation(object):
 
         ### incorporate cohort of 18-year-olds from wave 2
         ### don't actually add them yet, because death rates will be calculated slightly differently
+        ### (using previous smoking states for PATH pop, current smoking states for cohort)
 
         cohort_idx = 2015 # wave 2
         cohort_arr = self.cohorts[cohort_idx]
@@ -1142,18 +1146,18 @@ class Simulation(object):
             """
             Main loop and crux of the program.
             Steps:
-                0. add cohorts of 18-year-olds if needed
-                1. write data to appropriate structures to be saved for later analysis
-                2. kill people according to life tables
-                3. update people's smoking statuses
+                1. add cohorts of 18-year-olds if needed
+                2. write data to appropriate structures to be saved for later analysis
+                3. kill people according to life tables
+                4. update people's smoking statuses
                     a. make sure to take care of hassmoked flag
-                4. update people's ages
-                5. update initation age group
+                5. update people's ages
+                6. update initation age group
             """
 
             # insert new cohort(s) of 18yearolds
             # only do this for the first X years
-            if self.cohorts is not None and self.start_year + cy < self.last_year_cohort_added:
+            if self.cohorts is not None and self.start_year + cy <= self.last_year_cohort_added and cy != 0:
                 cohort_idx = max(self.start_year + cy, 2015)
                 cohort_idx = min(cohort_idx, 2017)
                 cohort_arr = self.cohorts[cohort_idx]
@@ -1186,7 +1190,7 @@ class Simulation(object):
             # update current state, old state
 
             new_states2345 = self.random_select_arg_multinomial(probs2345)[:,:] # (s1, s2, s3, s4, s5)
-            new_states1 = self.random_select_arg_multinomial(probs1)[:,:].astype(np.float64) # (s1, s2, s3, s4, s5)
+            new_states1 = self.random_select_arg_multinomial(probs1)[:,:] # (s1, s2, s3, s4, s5)
 
             # leaving_1 is True for each row in new_states1 which has chosen to transition to 2, 3, 4, or 5
             leaving_1 = np.sum(new_states1[:,1:], axis=1).astype(np.bool_)
@@ -1234,7 +1238,7 @@ class Simulation(object):
 
             arr2345[:,9] = (arr2345[:,8] == 0) * (arr2345[:,12] >= 18)
 
-            # endfor 
+            # endfor
 
         # write data one last time for the final year
 

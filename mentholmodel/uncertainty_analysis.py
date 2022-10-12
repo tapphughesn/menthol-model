@@ -1,3 +1,8 @@
+"""
+Replicate with different combinations of initial population, mortality parameters, and short-term-ban scenarios.
+"""
+
+
 from simulation import Simulation
 import pandas as pd
 import numpy as np
@@ -99,8 +104,7 @@ def main(args):
                     long_term_option=1,
                     menthol_ban_year = 2021,
                     target_initial_smoking_proportion=NHIS_smoking_percentage,
-                    initiation_rate_decrease=0.055,
-                    continuation_rate_decrease=0.055,
+                    initiation_rate_decrease=0.0,
                     )
         s.simulate()
     

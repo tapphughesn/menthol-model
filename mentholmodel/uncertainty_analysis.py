@@ -1,22 +1,38 @@
-"""
-Replicate with different combinations of initial population, mortality parameters, and short-term-ban scenarios.
-"""
-
-
 from simulation import Simulation
 import pandas as pd
 import numpy as np
 import argparse
 import os
+from datetime import datetime
+
+def draw_mort_params():
+
+    
+
+    return
 
 def main(args):
-    # 0 = male
-    # 1 = female
+
+    now_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
+    results_dir = f'/Users/nick/Documents/Gillings_work/uncertainty_analysis_data/uncertainty_analysis_{now_str}'
+
+    os.mkdir(results_dir)
+
+    mort_sets_dir = os.path.join(results_dir, 'mortality_parameter_sets')
+    init_pop_dir = os.path.join(results_dir, 'initial_populations')
+    shortban_param_dir = os.path.join(results_dir, 'short_term_menthol_ban_parameter_sets')
+    
+    os.mkdir(mort_sets_dir)
+    os.mkdir(init_pop_dir)
+    os.mkdir(shortban_param_dir)
+
     print("args:")
     print(args)
 
     # Get life tables
     # Used for death rates
+    # 0 = male
+    # 1 = female
     life_table_dict = {}
     life_table_dict[2016] = {}
     life_table_dict[2017] = {}
@@ -49,8 +65,6 @@ def main(args):
     # Get population data
     # UNCALIBRATED
     pop_file_name = os.path.join("..","..","population_files_Feb8","population_file_sent_Feb8.xlsx")
-    # CALIBRATED
-    # pop_file_name = os.path.join("..","..","Calibrated Population","Calibrated Population","PATH_Calibrate_18_64.xlsx")
 
     pop_df = pd.read_excel(pop_file_name)
 
@@ -63,15 +77,9 @@ def main(args):
     for that wave. 
     """
 
-    # UNCALIBRATED
     cohorts_18_dict[2015] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 2 fresh population profile.xlsx")).to_numpy()
     cohorts_18_dict[2016] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 3 fresh population profile.xlsx")).to_numpy()
     cohorts_18_dict[2017] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 4 fresh population profile.xlsx")).to_numpy()
-
-    # CALIBRATED
-    # cohorts_18_dict[2015] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave2_Calibrate_18.xlsx")).to_numpy()
-    # cohorts_18_dict[2016] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave3_Calibrate_18.xlsx")).to_numpy()
-    # cohorts_18_dict[2017] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave4_Calibrate_18.xlsx")).to_numpy()
 
     # Get logistic regression betas
     beta2345_f = os.path.join("..","..","Output_SM","Betas","Beta_Estimates_2345.xlsx")
@@ -81,6 +89,7 @@ def main(args):
 
     # our magic smoking percentage for calibration
     # path to the magic file I'm using:
+    # the goal is to have a "starting population" with the same smoking rate as that in NHIS
     # /Users/nick/Documents/Gillings_work/nhis_data/NHIS_smoker_proportions./NHIS_State_age/NHIS_State_age/NHIS_state_age18_64.xlsx
 
     NHIS_smoking_percentage = 0.151316
@@ -101,56 +110,34 @@ def main(args):
                     end_year = 2066,
                     menthol_ban=args.menthol_ban,
                     short_term_option=1,
-                    long_term_option=1,
+                    long_term_option=5,
                     menthol_ban_year = 2021,
                     target_initial_smoking_proportion=NHIS_smoking_percentage,
-                    initiation_rate_decrease=0.0,
+                    initiation_rate_decrease=0.055,
+                    continuation_rate_decrease=0.055,
                     )
         s.simulate()
     
-    # for i in range(21):
-    #     j = 5.0 + i / 10
-    #     i_str = str(j)
-    #     while len(i_str) < 3:
-    #         i_str = "0" + i_str
-    #     print(i_str)
-    #     assert(len(i_str) == 3)
-    #     s = Simulation(pop_df=pop_df, 
-    #                 beta2345=beta2345_arr, 
-    #                 beta1=beta1_arr, 
-    #                 life_tables=life_table_dict,
-    #                 cohorts=cohorts_18_dict,
-    #                 smoking_prevalences=smoking_prevalence_dict,
-    #                 current_smoker_RR=csvnsRR,
-    #                 former_smoker_RR=fsvcsRR,
-    #                 save_xl_fname=f'xl_output_calibrated_to_NHIS_' + i_str,
-    #                 save_np_fname=f'np_output_calibrated_to_NHIS_' + i_str,
-    #                 save_transition_np_fname=f'transitions_calibrated_' + i_str,
-    #                 use_adjusted_death_rates=not args.simple_death_rates,
-    #                 end_year = 2066,
-    #                 menthol_ban=args.menthol_ban,
-    #                 short_term_option=1,
-    #                 long_term_option=1,
-    #                 menthol_ban_year = 2021,
-    #                 target_initial_smoking_proportion=NHIS_smoking_percentage,
-    #                 initiation_rate_decrease=j/100,
-    #                 continuation_rate_decrease=j/100,
-    #                 )
-    #     s.simulate()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Specify simulation parameters')
-    parser.add_argument('number_replications', 
+    parser.add_argument('num_mortparams', 
                         type=int,
                         default=1,
-                        help='the number of relplications to do')
+                        help='the number of sets of mortality parameters (relative risks) to draw')
+    parser.add_argument('num_initpops', 
+                        type=int,
+                        default=1,
+                        help='the number of initial populations to create for each mortality parameter draw')
+    parser.add_argument('num_shortbanparams', 
+                        type=int,
+                        default=1,
+                        help='the number of short term menthol ban parameters to draw in the case of a menthol ban')
     parser.add_argument('--simple_death_rates', 
-                        # type=bool,
                         default=False,
                         action='store_true',
                         help='whether or not to use separate death rates for smokers, nonsmokers, and former smokers')
     parser.add_argument('--menthol_ban', 
-                        # type=bool,
                         default=False,
                         action='store_true',
                         help='whether or not to implement a menthol ban at year 10')

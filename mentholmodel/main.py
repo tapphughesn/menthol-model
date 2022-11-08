@@ -96,7 +96,7 @@ def main(args):
                     end_year = 2066,
                     menthol_ban=args.menthol_ban,
                     short_term_option=1,
-                    long_term_option=1,
+                    long_term_option=5,
                     menthol_ban_year = 2021,
                     target_initial_smoking_proportion=NHIS_smoking_percentage,
                     initiation_rate_decrease=0.055,

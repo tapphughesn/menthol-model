@@ -149,7 +149,7 @@ class Simulation(object):
         self.output_numpy = np.zeros((end_year - start_year + 1, 2, 2, 6))
         self.output_transitions = []
         self.now_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
-        print(f"timestamp for this simulation object: {self.now_str}")
+        # print(f"timestamp for this simulation object: {self.now_str}")
         self.menthol_ban = menthol_ban
         self.short_term_option = short_term_option
         self.long_term_option = long_term_option
@@ -345,10 +345,23 @@ class Simulation(object):
             arr2345_death_rates = np.array([self.person_to_death_rate(row, ever_smoker=True, current_year=current_year, use_previous_smoking_state=use_previous_smoking_state) for row in in_arr2345]).astype(np.float64)
             arr1_death_rates = np.array([self.person_to_death_rate(row, ever_smoker=False, current_year=current_year, use_previous_smoking_state=use_previous_smoking_state) for row in in_arr1]).astype(np.float64)
 
-            assert(np.max(arr2345_death_rates) <= 1)
-            assert(np.min(arr2345_death_rates) >= 0)
-            assert(np.max(arr1_death_rates) <= 1)
-            assert(np.min(arr1_death_rates) >= 0)
+            try:
+                assert(np.max(arr2345_death_rates) - 1 < 0.2)
+                assert(np.min(arr2345_death_rates) >= 0)
+                assert(np.max(arr1_death_rates) - 1 < 0.2)
+                assert(np.min(arr1_death_rates) >= 0)
+            except:
+                print("""
+                print(np.max(arr2345_death_rates))
+                print(np.min(arr2345_death_rates))
+                print(np.max(arr1_death_rates))
+                print(np.min(arr1_death_rates))
+                """)
+                print(np.max(arr2345_death_rates))
+                print(np.min(arr2345_death_rates))
+                print(np.max(arr1_death_rates))
+                print(np.min(arr1_death_rates))
+
         else:
             print("Not using death rates adjusted for smokers, formersmokers, nonsmokers.")
 
@@ -679,7 +692,7 @@ class Simulation(object):
 
         return probs2345, probs1
 
-    def adjust_transition_probs_according_to_menthol_ban(self, in_arr2345, in_arr1, in_probs2345, in_probs1, current_year: int):
+    def adjust_transition_probs_according_to_menthol_ban(self, in_arr2345, in_arr1, in_probs2345, in_probs1, current_year: int, shortbanparams=None):
         """
         Adjust transition probabilities according to menthol ban scenario parameters.
 
@@ -720,26 +733,41 @@ class Simulation(object):
             option4 = np.array([0.,0.25,0.15,0.46,0.14])
             options = [option1, option2, option3, option4]
 
-            if self.short_term_option == 1:
-                print("short term option", self.short_term_option)
-                probs_25minus = options[1]
-                probs_25plus = options[0]
-            elif self.short_term_option == 2:
-                print("short term option", self.short_term_option)
-                probs_25minus = options[1]
-                probs_25plus = options[1]
-            elif self.short_term_option == 3:
-                print("short term option", self.short_term_option)
-                probs_25minus = options[0]
-                probs_25plus = options[2]
-            elif self.short_term_option == 4:
-                print("short term option", self.short_term_option)
-                probs_25minus = options[3]
-                probs_25plus = options[3]
+            # you can override the built-in options by supplying short-term ban params explicitly
+            if shortbanparams is None:
+                if self.short_term_option == 1:
+                    # print("short term option", self.short_term_option)
+                    probs_25minus = options[1]
+                    probs_25plus = options[0]
+                elif self.short_term_option == 2:
+                    # print("short term option", self.short_term_option)
+                    probs_25minus = options[1]
+                    probs_25plus = options[1]
+                elif self.short_term_option == 3:
+                    # print("short term option", self.short_term_option)
+                    probs_25minus = options[0]
+                    probs_25plus = options[2]
+                elif self.short_term_option == 4:
+                    # print("short term option", self.short_term_option)
+                    probs_25minus = options[3]
+                    probs_25plus = options[3]
+            else:
+                assert shortbanparams.shape == (2,5)
+                probs_25minus = shortbanparams[0]
+                probs_25plus = shortbanparams[1]
 
-            assert(sum(probs_25minus) == 1.)
-            assert(sum(probs_25plus) == 1.)
+            try:
+                assert(abs(sum(probs_25minus) - 1.) < 1e-5)
+                assert(abs(sum(probs_25plus) - 1.) < 1e-5)
+            except:
+                print(sum(probs_25minus))
+                print(sum(probs_25plus))
+                raise AssertionError
+            
+            probs_25minus /= np.sum(probs_25minus)
+            probs_25plus /= np.sum(probs_25plus)
 
+            # for indexing by age less than or greater than 25
             are_25plus_2345 = in_arr2345[:,11] >= 25
             are_25minus_2345 = np.logical_not(are_25plus_2345)
             are_25plus_1 = in_arr1[:,11] >= 25
@@ -1110,27 +1138,7 @@ class Simulation(object):
         
         return arr1, arr2345, arr6
 
-    def simulate(self):
-
-        """
-        Calling this function causes 1 run of the simulation to happen.
-        Results are written according to save_xl_fname and save_np_fname.
-        Optionally, transition numbers are written to save_transition_np_fname.
-
-        Note, here I am using 'self.arr1' instead of just initializing a local variable 'arr1'.
-        Same for arr2345 and arr6.
-        I have chosen not to reference these arrays in the helper functions with 'self.',
-        instead I use a function parameter to pass them in
-        This is totally fine because numpy arrays are passed by reference not by value
-        I have chosen to do this because I want to be able to call Simulation.arr1, Simulation.arr2345, etc... 
-        from code outside the simulation.
-
-        Args:
-            None
-        
-        Output:
-            self.output: the data written out from the simulation
-        """
+    def format_population(self):
         pop_arr = self.pop_df.to_numpy(dtype=np.float64)
 
         # here we will re-randomize the ages according to the agegrp variable
@@ -1165,17 +1173,7 @@ class Simulation(object):
         # might also be used for health checks (not yet implemented)
         self.set_year_last_smoked(self.arr2345, current_year=2014)
 
-        # next step is to format the betas as a nice clean matrix
-        # that can just be multiplied against the covariate matrix
-        beta_2345_aug, beta_1_aug = self.get_augmented_betas()
-
-        self.arr1, self.arr2345, self.arr6 = self.calibrate_initial_population(self.arr1, self.arr2345, self.arr6, beta_1_aug, beta_2345_aug)
-
-        # get snapshot of population
-        # np.save("../../misc/arr2345_calibrated", arr2345)
-        # np.save("../../misc/arr1_calibrated", arr1)
-        # quit()
-
+    def simulation_loop(self, beta_1_aug, beta_2345_aug, shortbanparams=None):
         """
         Next step is to loop over years, updating the pop each year
         this is the main loop, simulating years 2016 - 2066
@@ -1221,7 +1219,7 @@ class Simulation(object):
             # next we augment transition probabilities according to menthol ban effects
 
             if self.menthol_ban:
-                probs2345, probs1 = self.adjust_transition_probs_according_to_menthol_ban(self.arr2345, self.arr1, probs2345, probs1, current_year=cy)
+                probs2345, probs1 = self.adjust_transition_probs_according_to_menthol_ban(self.arr2345, self.arr1, probs2345, probs1, current_year=cy, shortbanparams=shortbanparams)
 
             # next we augment transition probabilities according to initiation and cessation parameters
 
@@ -1283,6 +1281,46 @@ class Simulation(object):
         # write data one last time for the final year
 
         self.output_list_to_df, self.output_numpy = self.write_data(self.end_year - self.start_year, self.arr2345, self.arr1, self.arr6, self.output_list_to_df, self.output_numpy)
+
+        return
+
+    def simulate(self):
+        """
+        Calling this function causes 1 run of the simulation to happen.
+        Results are written according to save_xl_fname and save_np_fname.
+        Optionally, transition numbers are written to save_transition_np_fname.
+
+        Note, here I am using 'self.arr1' instead of just initializing a local variable 'arr1'.
+        Same for arr2345 and arr6.
+        I have chosen not to reference these arrays in the helper functions with 'self.',
+        instead I use a function parameter to pass them in
+        This is totally fine because numpy arrays are passed by reference not by value
+        I have chosen to do this because I want to be able to call Simulation.arr1, Simulation.arr2345, etc... 
+        from code outside the simulation.
+
+        Args:
+            None
+        
+        Output:
+            self.output: the data written out from the simulation
+        """
+
+        # format the population from pandas dataframe to numpy array form to be used in the simulation
+        self.format_population()
+
+        # next step is to format the betas as a nice clean matrix
+        # that can just be multiplied against the covariate matrix
+        beta_2345_aug, beta_1_aug = self.get_augmented_betas()
+
+        self.arr1, self.arr2345, self.arr6 = self.calibrate_initial_population(self.arr1, self.arr2345, self.arr6, beta_1_aug, beta_2345_aug)
+
+        # get snapshot of population
+        # np.save("../../misc/arr2345_calibrated", arr2345)
+        # np.save("../../misc/arr1_calibrated", arr1)
+        # quit()
+
+        # do the main simulation loop over all years!
+        self.simulation_loop(beta_1_aug=beta_1_aug, beta_2345_aug=beta_2345_aug)
 
         # writeout the results of the simulation to disk
         if self.save_xl_fname:

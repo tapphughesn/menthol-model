@@ -38,8 +38,8 @@ def main(args):
 
     # Get Releative Risks for current smokers vs nonsmoker and former smoker vs current smoker
     # According to a published review
-    csvnsRR = pd.read_excel(os.path.join("..", "..", "smoking_prevalence", "current_smoker_mortality_vs_nonsmoker.xlsx")).to_numpy()[:,1:]
-    fsvcsRR = pd.read_excel(os.path.join("..", "..", "smoking_prevalence", "former_smoker_mortality_vs_current_smoker.xlsx")).to_numpy()[:,1:]
+    csvnsRR = pd.read_excel(os.path.join("..", "..", "smoking_mortality", "current_smoker_mortality_vs_nonsmoker.xlsx")).to_numpy()[:,1:]
+    fsvcsRR = pd.read_excel(os.path.join("..", "..", "smoking_mortality", "former_smoker_mortality_vs_current_smoker.xlsx")).to_numpy()[:,1:]
 
     # Get population data
     # UNCALIBRATED

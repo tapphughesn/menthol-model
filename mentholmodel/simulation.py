@@ -591,7 +591,9 @@ class Simulation(object):
                     ])
 
                     output_numpy[cy,black,pov,smoking_state - 1] = count
-                    return output_list_to_df, output_numpy
+                    #endfor
+
+        return output_list_to_df, output_numpy
 
     def set_year_last_smoked(self, in_arr2345, current_year: int=2016):
         """
@@ -1295,8 +1297,8 @@ class Simulation(object):
         I have chosen not to reference these arrays in the helper functions with 'self.',
         instead I use a function parameter to pass them in
         This is totally fine because numpy arrays are passed by reference not by value
-        I have chosen to do this because I want to be able to call Simulation.arr1, Simulation.arr2345, etc... 
-        from code outside the simulation.
+        I have chosen to do this because I want to be able to reference Simulation.arr1, Simulation.arr2345, etc... 
+        from code outside the Simulation class.
 
         Args:
             None
@@ -1323,16 +1325,16 @@ class Simulation(object):
         self.simulation_loop(beta_1_aug=beta_1_aug, beta_2345_aug=beta_2345_aug)
 
         # writeout the results of the simulation to disk
-        if self.save_xl_fname:
+        if self.save_xl_fname is not None:
             out = pd.DataFrame(self.output_list_to_df, columns=self.output_columns)
             fname = os.path.join(self.save_dir, 'excel_files/', os.path.basename(self.save_xl_fname) + '_' + self.now_str + '.xlsx')
             out.to_excel(fname)
 
-        if self.save_np_fname:
+        if self.save_np_fname is not None:
             fname = os.path.join(self.save_dir, 'numpy_arrays/', os.path.basename(self.save_np_fname) + '_' + self.now_str + '.npy')
             np.save(fname, self.output_numpy)
         
-        if self.save_transition_np_fname:
+        if self.save_transition_np_fname is not None:
             fname = os.path.join(self.save_dir, 'transition_numbers/', os.path.basename(self.save_transition_np_fname) + '_' + self.now_str + '.npy')
             np.save(fname, np.asarray(self.output_transitions))
 

@@ -10,11 +10,13 @@ import math
 
 def main(args):
 
-    now_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
+    start = datetime.now()
+    now_str = start.strftime("%Y-%m-%d_%H-%M-%S-%f")
     print(f"uncertainty analysis timestamp: {now_str}")
-    results_dir = f'/Users/nick/Documents/Gillings_work/uncertainty_analysis_data/uncertainty_analysis_{now_str}'
+    results_dir = f'../../uncertainty_analysis_data/uncertainty_analysis_{now_str}'
 
-    os.mkdir(results_dir)
+    if not os.path.isdir(results_dir):
+        os.mkdir(results_dir)
 
     mort_sets_dir = os.path.join(results_dir, 'mortality_parameter_sets')
     init_pop_dir = os.path.join(results_dir, 'initial_populations')
@@ -99,8 +101,9 @@ def main(args):
     # create unit truncated normal to be used for confidence interval sampling
     unit_truncnorm = truncnorm(-1.96, 1.96) # 1.96 is z score for 95% confidence interval
 
+    # now determine mortality parameters to be used ahead of time
+    mortparamsset = []
     for i in range(args.num_mortparams):
-    # sample some mortality parameter sets
         this_csvns_sampling = []
         this_fsvcs_sampling = []
 
@@ -132,6 +135,51 @@ def main(args):
             i_str = "0" + i_str
         np.save(os.path.join(mort_sets_dir, f"set_{i_str}_csvns.npy"), this_csvns_sampling)
         np.save(os.path.join(mort_sets_dir, f"set_{i_str}_fsvcs.npy"), this_fsvcs_sampling)
+
+        mortparamsset.append(
+            (this_csvns_sampling, this_fsvcs_sampling)
+        )
+    # endfor
+
+    # create the set of menthol ban parameters to be used for all combinations of mortality params and initpops
+    # ahead of time, that is before we actually use them in simulation
+    if args.menthol_ban:
+        # these numbers specify the short term option from which we perturb to get randomness
+        shortbanparams_25minus = np.array([0.,0.27,0.19,0.42,0.12])
+        shortbanparams_25plus = np.array([0.,0.23,0.20,0.44,0.13])
+        # this is needed to reduce the variance of the dirichlet sampling
+        alpha_multiplier = 1000
+
+        shortbanparamset = []
+        for i in range(args.num_shortbanparams):
+            sample_25minus = np.random.dirichlet(
+                    alpha=shortbanparams_25minus[1:] * alpha_multiplier,
+                    size=args.num_shortbanparams,
+                    )
+            sample_25plus = np.random.dirichlet(
+                    alpha=shortbanparams_25plus[1:] * alpha_multiplier,
+                    size=args.num_shortbanparams,
+                    )
+
+            shortbanparams = np.concatenate([
+                np.zeros((2,1)),
+                np.concatenate([
+                    sample_25minus[i][np.newaxis, :],
+                    sample_25plus[i][np.newaxis, :],
+                ], axis = 0),
+            ], axis=1)
+
+            shortbanparamset.append(shortbanparams)
+        # endfor
+    # endif
+
+    for i in range(args.num_mortparams):
+        # get the mortality parameters
+        this_csvns_sampling, this_fsvcs_sampling = mortparamsset[i]
+
+        i_str = str(i)
+        while len(i_str) < num_i_digits:
+            i_str = "0" + i_str
 
         # now for each mortality parameter set, make an initial population
         for j in range(args.num_initpops):
@@ -183,53 +231,48 @@ def main(args):
 
                 # do simulation for each i,j,k combo
                 for k in range(args.num_shortbanparams):
+                    # just creating a string to represent k
                     num_k_digits = math.floor(math.log10(args.num_shortbanparams))
                     k_str = str(k)
                     while len(k_str) < num_k_digits:
                         k_str = "0" + k_str
                     
-                    progress = i/args.num_mortparams + j/args.num_initpops/args.num_mortparams + k/args.num_shortbanparams/args.num_initpops/args.num_mortparams
-                    print(f"mort: {i_str}, initpop: {j_str}, ban params: {k_str}, {np.around(progress * 100, decimals=3)}% done")
+                    shortbanparams = shortbanparamset[k]
 
-                    shortbanparams = np.concatenate([
-                        np.zeros((2,1)),
-                        np.concatenate([
-                            sample_25minus[k][np.newaxis, :],
-                            sample_25plus[k][np.newaxis, :],
-                        ], axis = 0),
-                    ], axis=1)
-
-                # create simulation obj and set its initial pop to previous one
-                t = Simulation(pop_df=pop_df, 
-                    beta2345=beta2345_arr, 
-                    beta1=beta1_arr, 
-                    life_tables=life_table_dict,
-                    cohorts=cohorts_18_dict,
-                    smoking_prevalences=smoking_prevalence_dict,
-                    current_smoker_RR=this_csvns_sampling,
-                    former_smoker_RR=this_fsvcs_sampling,
-                    save_xl_fname='xl_output_calibrated',
-                    save_np_fname='np_output_calibrated',
-                    save_transition_np_fname='transitions_calibrated',
-                    use_adjusted_death_rates=not args.simple_death_rates,
-                    end_year = 2066,
-                    menthol_ban=args.menthol_ban,
-                    short_term_option=1,
-                    long_term_option=5,
-                    menthol_ban_year = 2021,
-                    target_initial_smoking_proportion=NHIS_smoking_percentage,
-                    initiation_rate_decrease=0.055,
-                    continuation_rate_decrease=0.055,
-                    )
-                
-                t.arr1, t.arr2345, t.arr6 = np.copy(s.arr1), np.copy(s.arr2345), np.copy(s.arr6)
-
-                t.simulation_loop(beta_1_aug, beta_2345_aug, shortbanparams=shortbanparams)
-
-                savename = os.path.join(output_dir, f'mort_{i_str}_pop_{j_str}_banparams_{k_str}_output.npy')
-                np.save(savename, t.output_numpy)
+                    # create simulation obj and set its initial pop to previous one
+                    t = Simulation(pop_df=pop_df, 
+                        beta2345=beta2345_arr, 
+                        beta1=beta1_arr, 
+                        life_tables=life_table_dict,
+                        cohorts=cohorts_18_dict,
+                        smoking_prevalences=smoking_prevalence_dict,
+                        current_smoker_RR=this_csvns_sampling,
+                        former_smoker_RR=this_fsvcs_sampling,
+                        save_xl_fname='xl_output_calibrated',
+                        save_np_fname='np_output_calibrated',
+                        save_transition_np_fname='transitions_calibrated',
+                        use_adjusted_death_rates=not args.simple_death_rates,
+                        end_year = 2066,
+                        menthol_ban=args.menthol_ban,
+                        short_term_option=1,
+                        long_term_option=5,
+                        menthol_ban_year = 2021,
+                        target_initial_smoking_proportion=NHIS_smoking_percentage,
+                        initiation_rate_decrease=0.055,
+                        continuation_rate_decrease=0.055,
+                        )
                     
-                #endfor
+                    t.arr1, t.arr2345, t.arr6 = np.copy(s.arr1), np.copy(s.arr2345), np.copy(s.arr6)
+
+                    t.simulation_loop(beta_1_aug, beta_2345_aug, shortbanparams=shortbanparams)
+
+                    savename = os.path.join(output_dir, f'mort_{i_str}_pop_{j_str}_banparams_{k_str}_output.npy')
+                    np.save(savename, t.output_numpy)
+                    
+                    progress = i/args.num_mortparams + j/args.num_initpops/args.num_mortparams + k/args.num_shortbanparams/args.num_initpops/args.num_mortparams
+                    seconds_since_start = int((datetime.now() - start).total_seconds())
+                    print(f"mort: {i_str}, initpop: {j_str}, ban params: {k_str}, {np.around(progress * 100, decimals=3)}% done, {seconds_since_start} seconds elapsed.")
+                 #endfor
             else:
                 raise NotImplementedError
 
@@ -237,11 +280,6 @@ def main(args):
         #endfor
     #endfor
 
-
-    
-    # for _ in range(args.number_replications):
-    #     s.simulate()
-    
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Specify simulation parameters')

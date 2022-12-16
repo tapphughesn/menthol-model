@@ -131,8 +131,8 @@ class Simulation(object):
         self.former_smoker_RR = former_smoker_RR # Relative Risk of all cause mortality vs current smokers
         self.end_year=end_year 
         self.start_year=start_year
-        self.beta2345 = np.asarray(beta2345, dtype=np.float64) # arr
-        self.beta1 = np.asarray(beta1, dtype=np.float64) # arr
+        self.beta2345 = np.asarray(beta2345) # arr
+        self.beta1 = np.asarray(beta1) # arr
         self.save_xl_fname = save_xl_fname
         self.save_np_fname = save_np_fname
         self.save_transition_np_fname = save_transition_np_fname
@@ -398,7 +398,7 @@ class Simulation(object):
         if in_arr6 is None:
             in_arr6 = np.copy(in_arr2345)[deaths_2345]
         else:
-            in_arr6 = np.concatenate([in_arr6, np.copy(in_arr2345)[deaths_2345]], axis=0, dtype=np.float64)
+            in_arr6 = np.concatenate([in_arr6, np.copy(in_arr2345)[deaths_2345]], axis=0)
 
         in_arr2345 = in_arr2345[np.logical_not(deaths_2345)]
 
@@ -409,7 +409,7 @@ class Simulation(object):
         if in_arr6 is None:
             in_arr6 = np.copy(in_arr1)[deaths_1]
         else:
-            in_arr6 = np.concatenate([in_arr6, np.copy(in_arr1)[deaths_1]], axis=0, dtype=np.float64)
+            in_arr6 = np.concatenate([in_arr6, np.copy(in_arr1)[deaths_1]], axis=0)
         
         in_arr1 = in_arr1[np.logical_not(deaths_1)]
 
@@ -454,7 +454,7 @@ class Simulation(object):
             a[:,10][:,np.newaxis], # start age
             a[:,8][:,np.newaxis], # weight
             -1 * np.ones((a.shape[0],1)), # year last smoked initialize to -1 for nonsmokers
-        ], axis=1, dtype=np.float64)
+        ], axis=1)
         return a
     
     def cohort_to_indicator_form(self, c, current_year: int=2016):
@@ -482,9 +482,9 @@ class Simulation(object):
 
         arr2345 = np.asarray([row for row in path_form_arr 
                   if (row[4] == 2 or row[4] == 3 or row[4] == 4 or row[4] == 5
-                  or row[3] == 2 or row[3] == 3 or row[3] == 4 or row[3] == 5)], dtype=np.float64)
+                  or row[3] == 2 or row[3] == 3 or row[3] == 4 or row[3] == 5)])
         arr1 = np.asarray([row for row in path_form_arr
-                  if (row[4] == 1 and row[3] == 1)], dtype=np.float64)
+                  if (row[4] == 1 and row[3] == 1)])
 
         arr2345 = self.path_to_indicator_form(arr2345)
         arr1 = self.path_to_indicator_form(arr1)
@@ -648,14 +648,14 @@ class Simulation(object):
         beta_2345_aug = np.concatenate([
             self.beta2345,
             np.zeros((len(self.beta2345), 3)),
-        ], axis=1, dtype=np.float64)
+        ], axis=1)
 
         beta_1_aug = np.concatenate([
             self.beta1[:,0][:,np.newaxis],
             np.zeros((len(self.beta1), 9)),
             self.beta1[:,1:],
             np.zeros((len(self.beta1), 3)),
-        ], axis=1, dtype=np.float64)
+        ], axis=1)
 
         beta_2345_aug = np.transpose(beta_2345_aug)
         beta_1_aug = np.transpose(beta_1_aug)
@@ -680,7 +680,7 @@ class Simulation(object):
             p4*exps[:,1], # p3
             p4,           # p4
             p4*exps[:,2], # p5
-        ], dtype=np.float64).transpose()
+        ]).transpose()
 
         exps = np.exp(logits_1)
         p4 = 1 / (1 + np.sum(exps, axis=1))
@@ -690,7 +690,7 @@ class Simulation(object):
             p4*exps[:,2], # p3
             p4,           # p4
             p4*exps[:,3], # p5
-        ], dtype=np.float64).transpose()
+        ]).transpose()
 
         return probs2345, probs1
 
@@ -1105,7 +1105,7 @@ class Simulation(object):
         c1[:,5:8] = new_states1[:,1:-1]
         tmp_to_2345 = c1[leaving_1]
         c1 = c1[np.logical_not(leaving_1)]
-        c2345 = np.concatenate([c2345, tmp_to_2345], axis=0, dtype=np.float64)
+        c2345 = np.concatenate([c2345, tmp_to_2345], axis=0)
         # update year_last_smoked variable (column index 16)
         # smokers currently in state 3,4 get their last year updated
         c2345[np.logical_or(c2345[:,6],c2345[:,7]),16] = 2015 # this is for 2015 (wave 2)
@@ -1175,9 +1175,9 @@ class Simulation(object):
         # another for state 6 = death called arr6
         self.arr2345 = np.asarray([row for row in pop_arr 
                   if (row[4] == 2 or row[4] == 3 or row[4] == 4 or row[4] == 5
-                  or row[3] == 2 or row[3] == 3 or row[3] == 4 or row[3] == 5)], dtype=np.float64)
+                  or row[3] == 2 or row[3] == 3 or row[3] == 4 or row[3] == 5)])
         self.arr1 = np.asarray([row for row in pop_arr 
-                  if (row[4] == 1 and row[3] == 1)], dtype=np.float64)
+                  if (row[4] == 1 and row[3] == 1)])
         self.arr6 = None
 
         # These arrays need to be in "indicator form"
@@ -1271,7 +1271,7 @@ class Simulation(object):
 
             tmp_to_2345 = self.arr1[leaving_1]
             self.arr1 = self.arr1[np.logical_not(leaving_1)]
-            self.arr2345 = np.concatenate([self.arr2345, tmp_to_2345], axis=0, dtype=np.float64)
+            self.arr2345 = np.concatenate([self.arr2345, tmp_to_2345], axis=0)
 
             # update year_last_smoked variable
 

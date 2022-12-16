@@ -21,31 +21,12 @@ def main(args):
     mort_sets_dir = os.path.join(results_dir, 'mortality_parameter_sets')
     init_pop_dir = os.path.join(results_dir, 'initial_populations')
     shortban_param_dir = os.path.join(results_dir, 'short_term_menthol_ban_parameter_sets')
-    longban_param_dir = os.path.join(results_dir, 'long_term_menthol_ban_parameter_sets')
-
-    # create longban parameter directories for each long-term scenario (of which there are 4)
-    longban_options_dirs = [os.path.join(longban_param_dir, f'option_{i}') for i in range(1,5)]
-
-    # create initial population directory for each of the mortality parameter sets
-    init_pop_dirs = []
-    for i in range(args.num_mortparams):
-        num_i_digits = math.ceil(math.log10(args.num_mortparams))
-        i_str = str(i)
-        while len(i_str) < num_i_digits:
-            i_str = "0" + i_str
-        path = os.path.join(init_pop_dir, f"mortparam_set_{i_str}")
-        init_pop_dirs.append(path)
-
+    output_dir = os.path.join(results_dir, 'outputs_numpy')
     
     os.mkdir(mort_sets_dir)
     os.mkdir(init_pop_dir)
     os.mkdir(shortban_param_dir)
-    os.mkdir(longban_param_dir)
-
-    for dir in longban_options_dirs:
-        os.mkdir(dir)
-    for dir in init_pop_dirs:
-        os.mkdir(dir)
+    os.mkdir(output_dir)
 
     print("args:")
     print(args)
@@ -120,7 +101,7 @@ def main(args):
     # create unit truncated normal to be used for confidence interval sampling
     unit_truncnorm = truncnorm(-1.96, 1.96) # 1.96 is z score for 95% confidence interval
 
-    # now determine mortality parameters to be used in runs
+    # now determine mortality parameters to be used ahead of time
     mortparamsset = []
     for i in range(args.num_mortparams):
         this_csvns_sampling = []
@@ -148,7 +129,7 @@ def main(args):
         this_fsvcs_sampling = np.array(this_fsvcs_sampling)
         
         # save these mortality parameters for later analysis
-        num_i_digits = math.ceil(math.log10(args.num_mortparams))
+        num_i_digits = math.floor(math.log10(args.num_mortparams))
         i_str = str(i)
         while len(i_str) < num_i_digits:
             i_str = "0" + i_str
@@ -162,80 +143,48 @@ def main(args):
 
     # create the set of menthol ban parameters to be used for all combinations of mortality params and initpops
     # ahead of time, that is before we actually use them in simulation
-    # also for each combination of short-term ban parameters, create long-term ban parameters
-    # based on values sent to me on 11/23/22
-    shortbanparams_25minus = np.array([0.,0.28,0.17,0.31,0.24])
-    shortbanparams_25plus = np.array([0.,0.22,0.24,0.42,0.12])
-    # this is needed to reduce the variance of the dirichlet sampling
-    alpha_multiplier = 1000
+    if args.menthol_ban:
+        # these numbers specify the short term option from which we perturb to get randomness
+        # based on values sent to me on 11/23/22
+        shortbanparams_25minus = np.array([0.,0.28,0.17,0.31,0.24])
+        shortbanparams_25plus = np.array([0.,0.22,0.24,0.42,0.12])
+        # this is needed to reduce the variance of the dirichlet sampling
+        alpha_multiplier = 1000
 
-    # use dirichlet dist to sample short-term ban params
-    sample_25minus = np.random.dirichlet(
-            alpha=shortbanparams_25minus[1:] * alpha_multiplier,
-            size=args.num_banparams,
-            )
-    sample_25plus = np.random.dirichlet(
-            alpha=shortbanparams_25plus[1:] * alpha_multiplier,
-            size=args.num_banparams,
-            )
+        shortbanparamset = []
+        for i in range(args.num_shortbanparams):
+            sample_25minus = np.random.dirichlet(
+                    alpha=shortbanparams_25minus[1:] * alpha_multiplier,
+                    size=args.num_shortbanparams,
+                    )
+            sample_25plus = np.random.dirichlet(
+                    alpha=shortbanparams_25plus[1:] * alpha_multiplier,
+                    size=args.num_shortbanparams,
+                    )
 
-    # save the individual ban parameter sets
-    for i in range(args.num_banparams):
-        num_i_digits = math.ceil(math.log10(args.num_banparams))
-        i_str = str(i)
-        while len(i_str) < num_i_digits:
-            i_str = "0" + i_str
+            shortbanparams = np.concatenate([
+                np.zeros((2,1)),
+                np.concatenate([
+                    sample_25minus[i][np.newaxis, :],
+                    sample_25plus[i][np.newaxis, :],
+                ], axis = 0),
+            ], axis=1)
 
-        shortbanparams = np.concatenate([
-            np.zeros((2,1)),
-            np.concatenate([
-                sample_25minus[i][np.newaxis, :],
-                sample_25plus[i][np.newaxis, :],
-            ], axis = 0),
-        ], axis=1)
+            shortbanparamset.append(shortbanparams)
+        # endfor
+    # endif
 
-        np.save(os.path.join(shortban_param_dir, f"set_{i_str}_shortbanparams.npy"), shortbanparams)
-    # now do long-term ban parameters:
-    # using machine epsilon instead of zeros
-
-    longban_options = np.array([
-        [0.5, 0.25, 0.25],
-        [0.5, 0.5, np.finfo(float).eps],
-        [0.5, np.finfo(float).eps, 0.5],
-        [0.75, np.finfo(float).eps, 0.25],
-    ])
-
-    for i, opt in enumerate(longban_options):
-        option_num = i + 1
-        sample = np.random.dirichlet(
-            alpha=opt * alpha_multiplier,
-            size=args.num_banparams,
-        )
-        # save these where they should go
-        for j in range(args.num_banparams):
-            num_j_digits = math.ceil(math.log10(args.num_banparams))
-            j_str = str(j)
-            while len(j_str) < num_j_digits:
-                j_str = "0" + j_str
-
-            longbanparams = sample[j]
-
-            np.save(os.path.join(longban_options_dirs[i], f"option_{option_num}_set_{j_str}_longbanparams.npy"), longbanparams)
-
-    # Now get the initial populations. (25 for each set of mortality parameters)
     for i in range(args.num_mortparams):
         # get the mortality parameters
         this_csvns_sampling, this_fsvcs_sampling = mortparamsset[i]
 
-        num_i_digits = math.ceil(math.log10(args.num_mortparams))
         i_str = str(i)
         while len(i_str) < num_i_digits:
             i_str = "0" + i_str
-        this_init_pop_dir = init_pop_dirs[i]
 
         # now for each mortality parameter set, make an initial population
         for j in range(args.num_initpops):
-            num_j_digits = math.ceil(math.log10(args.num_initpops))
+            num_j_digits = math.floor(math.log10(args.num_initpops))
             j_str = str(j)
             while len(j_str) < num_j_digits:
                 j_str = "0" + j_str
@@ -254,6 +203,10 @@ def main(args):
                 save_transition_np_fname='transitions_calibrated',
                 use_adjusted_death_rates=not args.simple_death_rates,
                 end_year = 2066,
+                menthol_ban=args.menthol_ban,
+                short_term_option=1,
+                long_term_option=5,
+                menthol_ban_year = 2021,
                 target_initial_smoking_proportion=NHIS_smoking_percentage,
                 initiation_rate_decrease=0.055,
                 continuation_rate_decrease=0.055,
@@ -264,9 +217,67 @@ def main(args):
             beta_2345_aug, beta_1_aug = s.get_augmented_betas()
             s.arr1, s.arr2345, s.arr6 = s.calibrate_initial_population(s.arr1, s.arr2345, s.arr6, beta_1_aug, beta_2345_aug)
 
-            np.save(os.path.join(this_init_pop_dir, f'mort_{i_str}_pop_{j_str}_arr1.npy'), s.arr1)
-            np.save(os.path.join(this_init_pop_dir, f'mort_{i_str}_pop_{j_str}_arr6.npy'), s.arr6)
-            np.save(os.path.join(this_init_pop_dir, f'mort_{i_str}_pop_{j_str}_arr2345.npy'), s.arr2345)
+            np.save(os.path.join(init_pop_dir, f'mort_{i_str}_pop_{j_str}_arr1.npy'), s.arr1)
+            np.save(os.path.join(init_pop_dir, f'mort_{i_str}_pop_{j_str}_arr6.npy'), s.arr6)
+            np.save(os.path.join(init_pop_dir, f'mort_{i_str}_pop_{j_str}_arr2345.npy'), s.arr2345)
+
+
+            if args.menthol_ban:
+                #for each initial population, sample menthol ban params k times
+                shortbanparams_25minus = np.array([0.,0.27,0.19,0.42,0.12])
+                shortbanparams_25plus = np.array([0.,0.23,0.20,0.44,0.13])
+
+                sample_25minus = np.random.dirichlet(alpha=shortbanparams_25minus[1:], size=args.num_shortbanparams)
+                sample_25plus = np.random.dirichlet(alpha=shortbanparams_25plus[1:], size=args.num_shortbanparams)
+
+                # do simulation for each i,j,k combo
+                for k in range(args.num_shortbanparams):
+                    # just creating a string to represent k
+                    num_k_digits = math.floor(math.log10(args.num_shortbanparams))
+                    k_str = str(k)
+                    while len(k_str) < num_k_digits:
+                        k_str = "0" + k_str
+                    
+                    shortbanparams = shortbanparamset[k]
+
+                    # create simulation obj and set its initial pop to previous one
+                    t = Simulation(pop_df=pop_df, 
+                        beta2345=beta2345_arr, 
+                        beta1=beta1_arr, 
+                        life_tables=life_table_dict,
+                        cohorts=cohorts_18_dict,
+                        smoking_prevalences=smoking_prevalence_dict,
+                        current_smoker_RR=this_csvns_sampling,
+                        former_smoker_RR=this_fsvcs_sampling,
+                        save_xl_fname='xl_output_calibrated',
+                        save_np_fname='np_output_calibrated',
+                        save_transition_np_fname='transitions_calibrated',
+                        use_adjusted_death_rates=not args.simple_death_rates,
+                        end_year = 2066,
+                        menthol_ban=args.menthol_ban,
+                        short_term_option=1,
+                        long_term_option=5,
+                        menthol_ban_year = 2021,
+                        target_initial_smoking_proportion=NHIS_smoking_percentage,
+                        initiation_rate_decrease=0.055,
+                        continuation_rate_decrease=0.055,
+                        )
+                    
+                    t.arr1, t.arr2345, t.arr6 = np.copy(s.arr1), np.copy(s.arr2345), np.copy(s.arr6)
+
+                    t.simulation_loop(beta_1_aug, beta_2345_aug, shortbanparams=shortbanparams)
+
+                    savename = os.path.join(output_dir, f'mort_{i_str}_pop_{j_str}_banparams_{k_str}_output.npy')
+                    np.save(savename, t.output_numpy)
+                    
+                    progress = i/args.num_mortparams + j/args.num_initpops/args.num_mortparams + k/args.num_shortbanparams/args.num_initpops/args.num_mortparams
+                    seconds_since_start = int((datetime.now() - start).total_seconds())
+                    print(f"mort: {i_str}, initpop: {j_str}, ban params: {k_str}, {np.around(progress * 100, decimals=3)}% done, {seconds_since_start} seconds elapsed.")
+                 #endfor
+            else:
+                raise NotImplementedError
+
+            #endif
         #endfor
     #endfor
 
@@ -281,10 +292,22 @@ if __name__ == '__main__':
                         type=int,
                         default=1,
                         help='the number of initial populations to create for each mortality parameter draw')
-    parser.add_argument('num_banparams', 
+    parser.add_argument('num_shortbanparams', 
                         type=int,
                         default=1,
-                        help='the number of short term and long term menthol ban parameter sets to draw in the case of a menthol ban')
+                        help='the number of short term menthol ban parameters to draw in the case of a menthol ban')
+    parser.add_argument('ban_option', 
+                        type=int,
+                        default=0,
+                        help='which long-term ban option to use (0 = status quo)')
+    parser.add_argument('timestamp', 
+                        type=int,
+                        default='',
+                        help='timestamp of uncertainty analysis directory we are working in')
+    parser.add_argument('--second_half', 
+                        default=False,
+                        action='store_true',
+                        help='whether or not to just focus on the second half of the runs (start with ban paramset 50/100)')
     parser.add_argument('--simple_death_rates', 
                         default=False,
                         action='store_true',

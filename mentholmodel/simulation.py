@@ -694,7 +694,7 @@ class Simulation(object):
 
         return probs2345, probs1
 
-    def adjust_transition_probs_according_to_menthol_ban(self, in_arr2345, in_arr1, in_probs2345, in_probs1, current_year: int, shortbanparams=None):
+    def adjust_transition_probs_according_to_menthol_ban(self, in_arr2345, in_arr1, in_probs2345, in_probs1, current_year: int, shortbanparams=None, longbanparams=None):
         """
         Adjust transition probabilities according to menthol ban scenario parameters.
 
@@ -736,6 +736,7 @@ class Simulation(object):
             options = [option1, option2, option3, option4]
 
             # you can override the built-in options by supplying short-term ban params explicitly
+            # which is what I am doing in uncertainty analysis
             if shortbanparams is None:
                 if self.short_term_option == 1:
                     # print("short term option", self.short_term_option)
@@ -805,75 +806,90 @@ class Simulation(object):
             assert(len(in_probs2345) == sum(are_menthol_smokers) + sum(not_menthol_smokers))
             assert(len(in_probs2345) == len(in_arr2345))
 
-            if self.long_term_option == 1:
-                # print("long term option", self.long_term_option)
-                # the probability that menthol smokers "remain the same"
-                # is reduced
+            if longbanparams is not None:
+                # assert sum(longbanparams) == 1
+                # long term ban params are 3 numbers:
+                # 1. proportion of menthol-continuers that still continue smoking menthol
+                # 2. proportion of menthol-continuers that transition to former smoker
+                # 3. proportion of menthol-continuers that transition to non-menthol smoker
+
                 tmp = in_probs2345[are_menthol_smokers]
-                tmp[:,1] += tmp[:,2] * 0.5 
-                tmp[:,2] *= 0.5
+                tmp[:,1] += tmp[:,2] * longbanparams[1] # to former
+                tmp[:,3] += tmp[:,2] * longbanparams[2] # to nonmenthol
+                tmp[:,2] *= longbanparams[0] # still menthol
                 in_probs2345[are_menthol_smokers] = tmp
 
-                # the probability that non- (menthol smokers) become
-                # menthol smokers vanishes.
-                tmp = in_probs2345[not_menthol_smokers]
-                tmp[:,2] = 0
-                tmp /= np.sum(tmp, axis=1).reshape((-1,1))
-                in_probs2345[not_menthol_smokers] = tmp
+            else:
+                # code several long-term ban options explicitly, but this is deprecated now.
+                if self.long_term_option == 1:
+                    # print("long term option", self.long_term_option)
+                    # the probability that menthol smokers "remain the same"
+                    # is reduced
+                    tmp = in_probs2345[are_menthol_smokers]
+                    tmp[:,1] += tmp[:,2] * 0.5 
+                    tmp[:,2] *= 0.5
+                    in_probs2345[are_menthol_smokers] = tmp
 
-            elif self.long_term_option == 2:
-                # print("long term option", self.long_term_option)
-                tmp = in_probs2345[are_menthol_smokers]
-                tmp[:,1] += tmp[:,2] * 0.75
-                tmp[:,2] *= 0.25
-                in_probs2345[are_menthol_smokers] = tmp
+                    # the probability that non- (menthol smokers) become
+                    # menthol smokers vanishes.
+                    tmp = in_probs2345[not_menthol_smokers]
+                    tmp[:,2] = 0
+                    tmp /= np.sum(tmp, axis=1).reshape((-1,1))
+                    in_probs2345[not_menthol_smokers] = tmp
 
-                # the probability that non- (menthol smokers) become
-                # menthol smokers vanishes.
-                tmp = in_probs2345[not_menthol_smokers]
-                tmp[:,2] = 0
-                tmp /= np.sum(tmp, axis=1).reshape((-1,1))
-                in_probs2345[not_menthol_smokers] = tmp
-            elif self.long_term_option == 3:
-                # print("long term option", self.long_term_option)
-                tmp = in_probs2345[are_menthol_smokers]
-                tmp[:,3] += tmp[:,2] * 0.5 
-                tmp[:,2] *= 0.5
-                in_probs2345[are_menthol_smokers] = tmp
+                elif self.long_term_option == 2:
+                    # print("long term option", self.long_term_option)
+                    tmp = in_probs2345[are_menthol_smokers]
+                    tmp[:,1] += tmp[:,2] * 0.75
+                    tmp[:,2] *= 0.25
+                    in_probs2345[are_menthol_smokers] = tmp
 
-                # the probability that non- (menthol smokers) become
-                # menthol smokers vanishes.
-                tmp = in_probs2345[not_menthol_smokers]
-                tmp[:,2] = 0
-                tmp /= np.sum(tmp, axis=1).reshape((-1,1))
-                in_probs2345[not_menthol_smokers] = tmp
-            elif self.long_term_option == 4:
-                # print("long term option", self.long_term_option)
-                tmp = in_probs2345[are_menthol_smokers]
-                tmp[:,3] += tmp[:,2] * 0.25
-                tmp[:,2] *= 0.75
-                in_probs2345[are_menthol_smokers] = tmp
+                    # the probability that non- (menthol smokers) become
+                    # menthol smokers vanishes.
+                    tmp = in_probs2345[not_menthol_smokers]
+                    tmp[:,2] = 0
+                    tmp /= np.sum(tmp, axis=1).reshape((-1,1))
+                    in_probs2345[not_menthol_smokers] = tmp
+                elif self.long_term_option == 3:
+                    # print("long term option", self.long_term_option)
+                    tmp = in_probs2345[are_menthol_smokers]
+                    tmp[:,3] += tmp[:,2] * 0.5 
+                    tmp[:,2] *= 0.5
+                    in_probs2345[are_menthol_smokers] = tmp
 
-                # the probability that non- (menthol smokers) become
-                # menthol smokers vanishes.
-                tmp = in_probs2345[not_menthol_smokers]
-                tmp[:,2] = 0
-                tmp /= np.sum(tmp, axis=1).reshape((-1,1))
-                in_probs2345[not_menthol_smokers] = tmp
-            elif self.long_term_option == 5:
-                # print("long term option", self.long_term_option)
-                tmp = in_probs2345[are_menthol_smokers]
-                tmp[:,3] += tmp[:,2] * 0.375
-                tmp[:,1] += tmp[:,2] * 0.375
-                tmp[:,2] *= 0.25
-                in_probs2345[are_menthol_smokers] = tmp
+                    # the probability that non- (menthol smokers) become
+                    # menthol smokers vanishes.
+                    tmp = in_probs2345[not_menthol_smokers]
+                    tmp[:,2] = 0
+                    tmp /= np.sum(tmp, axis=1).reshape((-1,1))
+                    in_probs2345[not_menthol_smokers] = tmp
+                elif self.long_term_option == 4:
+                    # print("long term option", self.long_term_option)
+                    tmp = in_probs2345[are_menthol_smokers]
+                    tmp[:,3] += tmp[:,2] * 0.25
+                    tmp[:,2] *= 0.75
+                    in_probs2345[are_menthol_smokers] = tmp
 
-                # the probability that non- (menthol smokers) become
-                # menthol smokers vanishes.
-                tmp = in_probs2345[not_menthol_smokers]
-                tmp[:,2] = 0
-                tmp /= np.sum(tmp, axis=1).reshape((-1,1))
-                in_probs2345[not_menthol_smokers] = tmp
+                    # the probability that non- (menthol smokers) become
+                    # menthol smokers vanishes.
+                    tmp = in_probs2345[not_menthol_smokers]
+                    tmp[:,2] = 0
+                    tmp /= np.sum(tmp, axis=1).reshape((-1,1))
+                    in_probs2345[not_menthol_smokers] = tmp
+                elif self.long_term_option == 5:
+                    # print("long term option", self.long_term_option)
+                    tmp = in_probs2345[are_menthol_smokers]
+                    tmp[:,3] += tmp[:,2] * 0.375
+                    tmp[:,1] += tmp[:,2] * 0.375
+                    tmp[:,2] *= 0.25
+                    in_probs2345[are_menthol_smokers] = tmp
+
+                    # the probability that non- (menthol smokers) become
+                    # menthol smokers vanishes.
+                    tmp = in_probs2345[not_menthol_smokers]
+                    tmp[:,2] = 0
+                    tmp /= np.sum(tmp, axis=1).reshape((-1,1))
+                    in_probs2345[not_menthol_smokers] = tmp
         
         return in_probs2345, in_probs1
 
@@ -1175,7 +1191,7 @@ class Simulation(object):
         # might also be used for health checks (not yet implemented)
         self.set_year_last_smoked(self.arr2345, current_year=2014)
 
-    def simulation_loop(self, beta_1_aug, beta_2345_aug, shortbanparams=None):
+    def simulation_loop(self, beta_1_aug, beta_2345_aug, shortbanparams=None, longbanparams=None):
         """
         Next step is to loop over years, updating the pop each year
         this is the main loop, simulating years 2016 - 2066
@@ -1221,7 +1237,7 @@ class Simulation(object):
             # next we augment transition probabilities according to menthol ban effects
 
             if self.menthol_ban:
-                probs2345, probs1 = self.adjust_transition_probs_according_to_menthol_ban(self.arr2345, self.arr1, probs2345, probs1, current_year=cy, shortbanparams=shortbanparams)
+                probs2345, probs1 = self.adjust_transition_probs_according_to_menthol_ban(self.arr2345, self.arr1, probs2345, probs1, current_year=cy, shortbanparams=shortbanparams, longbanparams=longbanparams)
 
             # next we augment transition probabilities according to initiation and cessation parameters
 

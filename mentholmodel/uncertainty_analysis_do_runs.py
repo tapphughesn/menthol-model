@@ -40,6 +40,12 @@ def main(args):
 
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
+
+    # create output dir for this option
+    output_dir = os.path.join(output_dir, f"option_{args.ban_option}")
+
+    if not os.path.isdir(output_dir):
+        os.mkdir(output_dir)
     
     # Get life tables
     # Used for death rates
@@ -175,7 +181,7 @@ def main(args):
 
                     # load ban params
                     shortbanparams = np.load(os.path.join(shortban_param_dir, f"set_{k_str}_shortbanparams.npy"))
-                    longbanparams = np.load(os.path.join(longban_options_dirs[args.ban_option], f"option_{args.ban_option}_set_{k_str}_longbanparams.npy"))
+                    longbanparams = np.load(os.path.join(longban_options_dirs[args.ban_option - 1], f"option_{args.ban_option}_set_{k_str}_longbanparams.npy"))
 
                     t = Simulation(pop_df=pop_df, 
                         beta2345=beta2345_arr, 

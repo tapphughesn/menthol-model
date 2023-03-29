@@ -44,7 +44,7 @@ def main(args):
 
     start = datetime.now()
     print(f"analysing timestamp: {args.timestamp}")
-    results_dir = f'../../uncertainty_analysis_data/uncertainty_analysis_{args.timestamp}' # results go here
+    results_dir = f'../../uncertainty_analysis_data/uncertainty_analysis_{args.timestamp}' # params are here
 
     print("args:")
     print(args)

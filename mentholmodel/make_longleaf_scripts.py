@@ -18,8 +18,8 @@ def main(args):
 
     num_options = len(longban_options_dirs) + 1
     num_banparams = len(glob(longban_options_dirs[0] + '/*'))
-    num_mortparams = len(glob(mort_sets_dir + '/*'))
-    num_initpops = len(glob(init_pop_dir + '/*'))
+    num_mortparams = len(glob(mort_sets_dir + '/*')) // 2 # csvns and fsvcs
+    num_initpops = len(glob(init_pop_dir + '/*')) // 3 # arr1, arr2345, arr6
 
     filenames = []
     for opt in range(num_options):
@@ -27,7 +27,7 @@ def main(args):
             filename = f"UA_opt_{opt}_half_{half}.slurm"
             filenames.append(filename)
 
-            file_content = """#!/bin/bash
+            file_content = f"""#!/bin/bash
 
 #SBATCH -p general
 #SBATCH -N 1
@@ -35,14 +35,14 @@ def main(args):
 #SBATCH -n 1
 #SBATCH -c 12
 #SBATCH -t 11-
-#SBATCH --job
+#SBATCH --job-name=UA_{opt}_{half}
 """
             if args.email:
                 file_content += f"""#SBATCH --mail-type=end
 #SBATCH --mail-user={args.email}
 """
             if args.user:
-                file_content += f"""#SBATCH --output=/pine/scr/{args.user[0]}/{args.user[1]}/{args.user}/UA-output-{args.timestamp}-job-%j.out
+                file_content += f"""#SBATCH --output=/nas/longleaf/home/{args.user}/UA-output-{args.timestamp}-job-%j.out
 
 """
             else:
@@ -54,8 +54,6 @@ python uncertainty_analysis_do_runs.py {num_mortparams} {num_initpops} {num_banp
 
             if half:
                 file_content += " --second_half"
-
-            print(file_content)
 
             if os.path.isfile(f"{filename}"):
                 os.remove(f"{filename}")

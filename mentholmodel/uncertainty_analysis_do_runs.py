@@ -1,3 +1,22 @@
+"""
+This script takes the uncertainty analysis params that were generated last time and
+uses them to do many runs of the simulation with different combinations of parameters.
+
+These are the categories of parameters:
+    1. Mortality params: relative risks of death for different smoking states
+    2. Short-term ban params: one-year effects of the menthol ban
+    3. Long-term ban params: year-over-year effects of the menthol ban
+    4. Initial populations: the starting population (2016 population)
+
+During the creation of the the parameters, these sets of starting parameters were
+randomly sampled from an appropriate distribution.
+
+We also have 6 different ban scenarios (5 sets of long-term parameters and 1 status quo scenario).
+
+For a given ban scenario, the uncertainty analysis might look like this:
+    1. Generate 25 sets of mort params, 25 initial pops, 25 
+
+"""
 from simulation import Simulation
 import pandas as pd
 import numpy as np
@@ -5,13 +24,27 @@ import argparse
 import os
 from datetime import datetime
 import math
+from glob import glob
+
+def int_to_str(i: int, max: int) -> str:
+    """
+    Takes an integer and converts it into a string.
+    Length of the string depends on max,
+    so that all integers will have the same string length.
+    """
+
+    num_i_digits = math.ceil(math.log10(max))
+    i_str = str(i)
+    while len(i_str) < num_i_digits:
+        i_str = "0" + i_str
+    return i_str
 
 
 def main(args):
 
     start = datetime.now()
     print(f"analysing timestamp: {args.timestamp}")
-    results_dir = f'../../uncertainty_analysis_data/uncertainty_analysis_{args.timestamp}'
+    results_dir = f'../../uncertainty_analysis_data/uncertainty_analysis_{args.timestamp}' # results go here
 
     print("args:")
     print(args)
@@ -25,23 +58,13 @@ def main(args):
     longban_param_dir = os.path.join(results_dir, 'long_term_menthol_ban_parameter_sets')
     output_dir = os.path.join(results_dir, 'outputs')
 
-    # create longban parameter directories for each long-term scenario (of which there are 4)
-    longban_options_dirs = [os.path.join(longban_param_dir, f'option_{i}') for i in range(1,5)]
-
-    # create initial population directory for each of the mortality parameter sets
-    init_pop_dirs = []
-    for i in range(args.num_mortparams):
-        num_i_digits = math.ceil(math.log10(args.num_mortparams))
-        i_str = str(i)
-        while len(i_str) < num_i_digits:
-            i_str = "0" + i_str
-        path = os.path.join(init_pop_dir, f"mortparam_set_{i_str}")
-        init_pop_dirs.append(path)
+    # create longban parameter directories for each long-term scenario
+    longban_options_dirs = sorted(glob(os.path.join(longban_param_dir, f'option_*')))
 
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
 
-    # create output dir for this option
+    # create output dir for this option, rewriting the variable output_dir
     output_dir = os.path.join(output_dir, f"option_{args.ban_option}")
 
     if not os.path.isdir(output_dir):
@@ -84,6 +107,7 @@ def main(args):
     # Get cohorts of 18 year olds
     cohorts_18_dict = {}
 
+
     """
     The cohorts dict will take the year corresponding to PATH waves 1, 2, 3
     (2015, 2016, 2017) as an index and return the cohort of 18 yearolds
@@ -108,37 +132,28 @@ def main(args):
     NHIS_smoking_percentage = 0.151316
 
     for i in range(args.num_mortparams):
-        num_i_digits = math.ceil(math.log10(args.num_mortparams))
-        i_str = str(i)
-        while len(i_str) < num_i_digits:
-            i_str = "0" + i_str
+        i_str = int_to_str(i, args.num_mortparams)
         
         # get the mortality parameters
         this_csvns_sampling = np.load(os.path.join(mort_sets_dir, f"set_{i_str}_csvns.npy"))
         this_fsvcs_sampling = np.load(os.path.join(mort_sets_dir, f"set_{i_str}_fsvcs.npy"))
 
         # now for each mortality parameter set, get the initial population
-        this_init_pop_dir = init_pop_dirs[i]
         for j in range(args.num_initpops):
-            num_j_digits = math.ceil(math.log10(args.num_initpops))
-            j_str = str(j)
-            while len(j_str) < num_j_digits:
-                j_str = "0" + j_str
+            j_str = int_to_str(j, args.num_initpops)
 
-            arr1 = np.load(os.path.join(this_init_pop_dir, f'mort_{i_str}_pop_{j_str}_arr1.npy'))
-            arr6 = np.load(os.path.join(this_init_pop_dir, f'mort_{i_str}_pop_{j_str}_arr6.npy'))
-            arr2345 = np.load(os.path.join(this_init_pop_dir, f'mort_{i_str}_pop_{j_str}_arr2345.npy'))
+            arr1 = np.load(os.path.join(init_pop_dir, f'pop_{j_str}_arr1.npy'))
+            arr6 = np.load(os.path.join(init_pop_dir, f'pop_{j_str}_arr6.npy'))
+            arr2345 = np.load(os.path.join(init_pop_dir, f'pop_{j_str}_arr2345.npy'))
 
             for k in range(args.num_banparams):
+                # do second half 
                 if args.second_half:
                     k += args.num_banparams // 2
                     if k >= args.num_banparams:
                         break
 
-                num_k_digits = math.ceil(math.log10(args.num_banparams))
-                k_str = str(k)
-                while len(k_str) < num_k_digits:
-                    k_str = "0" + k_str
+                k_str = int_to_str(k, args.num_banparams)
 
                 savename = os.path.join(output_dir, f'mort_{i_str}_pop_{j_str}_banparams_{k_str}_output.npy')
                 if os.path.isfile(savename):

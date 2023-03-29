@@ -40,22 +40,6 @@ class Simulation(object):
     
     Here are the independent variables we need to track 
     for logistic regression (mostly indicators):
-    OLD:
-        prev state = 1
-        prev state = 2
-        prev state = 3
-        prev state = 4
-        current state = 1
-        current state = 2
-        current state = 3
-        current state = 4
-        initial age = 1
-        initial age = 2
-        black
-        age
-        sex
-        poverty
-    NEW:
         prev state = 1
         prev state = 2
         prev state = 3
@@ -72,7 +56,6 @@ class Simulation(object):
 
     The simulation population arrays will keep track of the following things
     at the following indices:
-    NEW:
         0. one
         1. prev state = 1
         2. prev state = 2
@@ -227,7 +210,13 @@ class Simulation(object):
         pn, ps, pf = self.smoking_prevalences[life_table_year][sex].astype(np.float64)[min(age - 55, 29), :] / 100
 
         # grab relative risks
-        RRsn = self.current_smoker_RR[min((age - 55) // 5, 6), sex]
+        try:
+            RRsn = self.current_smoker_RR[min((age - 55) // 5, 6), sex]
+        except:
+            print("------------------")
+            print(age)
+            print(sex)
+            print(self.current_smoker_RR)
         RRfc = self.former_smoker_RR[3, sex] # use the RR for former smokers who have not smoked in 10-19 years by default
 
         # separate into cases depending on the smoking status of the person
@@ -450,7 +439,7 @@ class Simulation(object):
             a[:,6][:,np.newaxis],  # poverty is already {0,1} now, not {1,2} like before
             a[:,10][:,np.newaxis], # start age
             a[:,8][:,np.newaxis], # weight
-            -1 * np.ones((a.shape[0],1)), # year last smoked initialize to -1 for nonsmokers
+            -1 * np.ones((a.shape[0],1)), # year last smoked, initialize to -1 for nonsmokers
         ], axis=1)
         return a
     

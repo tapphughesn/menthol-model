@@ -1,3 +1,17 @@
+"""
+Uncertainty analysis is done in two stages
+
+1. Generate all the parameters that are going to be used for all the runs of the simulation
+    Three main groups: mortality params (relative risks), initial populations, ban parameters (short- and long-term).
+2. Iterate over all parameter sets, running a simulation for each, and recording all output
+
+This script is responsible for stage 1.
+
+The following acronyms are used throughout my code.
+They refer to the relative risk ratios used in mortality computation.
+csvns = Current Smoker Versus Never Smoker
+fsvcs = Former Smoker Versus Current Smoker
+"""
 from simulation import Simulation
 import pandas as pd
 import numpy as np
@@ -7,13 +21,14 @@ from datetime import datetime
 from scipy.stats import truncnorm
 import math
 
+from uncertainty_analysis_do_runs import int_to_str
 
 def main(args):
 
     start = datetime.now()
     now_str = start.strftime("%Y-%m-%d_%H-%M-%S-%f")
     print(f"uncertainty analysis timestamp: {now_str}")
-    results_dir = f'../../uncertainty_analysis_data/uncertainty_analysis_{now_str}'
+    results_dir = f'../../uncertainty_analysis_data/uncertainty_analysis_{now_str}' # The parameters get saved here
 
     if not os.path.isdir(results_dir):
         os.mkdir(results_dir)
@@ -23,29 +38,10 @@ def main(args):
     shortban_param_dir = os.path.join(results_dir, 'short_term_menthol_ban_parameter_sets')
     longban_param_dir = os.path.join(results_dir, 'long_term_menthol_ban_parameter_sets')
 
-    # create longban parameter directories for each long-term scenario (of which there are 4)
-    longban_options_dirs = [os.path.join(longban_param_dir, f'option_{i}') for i in range(1,5)]
-
-    # create initial population directory for each of the mortality parameter sets
-    init_pop_dirs = []
-    for i in range(args.num_mortparams):
-        num_i_digits = math.ceil(math.log10(args.num_mortparams))
-        i_str = str(i)
-        while len(i_str) < num_i_digits:
-            i_str = "0" + i_str
-        path = os.path.join(init_pop_dir, f"mortparam_set_{i_str}")
-        init_pop_dirs.append(path)
-
-    
     os.mkdir(mort_sets_dir)
     os.mkdir(init_pop_dir)
     os.mkdir(shortban_param_dir)
     os.mkdir(longban_param_dir)
-
-    for dir in longban_options_dirs:
-        os.mkdir(dir)
-    for dir in init_pop_dirs:
-        os.mkdir(dir)
 
     print("args:")
     print(args)
@@ -114,13 +110,19 @@ def main(args):
     # According to a published review
     # Here we are also getting 95% CI and stddevs
 
-    csvns_arr = pd.read_excel(os.path.join("..", "..", "smoking_mortality", "csvns_stddevs.xlsx")).to_numpy()[:,1:]
-    fsvcs_arr = pd.read_excel(os.path.join("..", "..", "smoking_mortality", "fsvcs_stddevs.xlsx")).to_numpy()[:,1:]
+    csvns_arr = pd.read_excel(os.path.join("..", "..", "smoking_mortality", "csvns_bounds.xlsx")).to_numpy()[:,1:]
+    fsvcs_arr = pd.read_excel(os.path.join("..", "..", "smoking_mortality", "fsvcs_bounds.xlsx")).to_numpy()[:,1:]
 
     # create unit truncated normal to be used for confidence interval sampling
     unit_truncnorm = truncnorm(-1.96, 1.96) # 1.96 is z score for 95% confidence interval
 
-    # now determine mortality parameters to be used in runs
+    # MORT PARAMS
+
+    base_mort_params = [] # used for initial populations
+    base_mort_params.append(np.array([np.array([row[0], row[1]]) for row in csvns_arr]))
+    base_mort_params.append(np.array([np.array([row[0], row[1]]) for row in fsvcs_arr]))
+
+    # now determine mortality parameter samplings to be used in runs
     mortparamsset = []
     for i in range(args.num_mortparams):
         this_csvns_sampling = []
@@ -129,29 +131,49 @@ def main(args):
         for row in csvns_arr:
             men_mean = row[0]
             women_mean = row[1]
-            men_stddev = row[4]
-            women_stddev = row[5]
-            men_RR = unit_truncnorm.rvs(size=1)[0] * men_stddev + men_mean
-            women_RR = unit_truncnorm.rvs(size=1)[0] * women_stddev + women_mean
+            men_lower = row[2]
+            women_lower = row[3]
+            men_upper = row[4]
+            women_upper = row[5]
+
+            # get to log space then find stddev from CI
+            men_stddev = (np.log(men_upper) - np.log(men_lower)) / (2*1.96) 
+            women_stddev = (np.log(women_upper) - np.log(women_lower)) / (2*1.96) 
+
+            # sample the ratio in log space then take exp to get back to the ratio
+            men_RR = unit_truncnorm.rvs(size=1)[0] * men_stddev + np.log(men_mean)
+            women_RR = unit_truncnorm.rvs(size=1)[0] * women_stddev + np.log(women_mean)
+            men_RR = np.exp(men_RR)
+            women_RR = np.exp(women_RR)
+
             this_csvns_sampling.append([men_RR, women_RR])
 
         for row in fsvcs_arr:
             men_mean = row[0]
             women_mean = row[1]
-            men_stddev = row[4]
-            women_stddev = row[5]
-            men_RR = unit_truncnorm.rvs(size=1)[0] * men_stddev + men_mean
-            women_RR = unit_truncnorm.rvs(size=1)[0] * women_stddev + women_mean
+            men_lower = row[2]
+            women_lower = row[3]
+            men_upper = row[4]
+            women_upper = row[5]
+
+            # get to log space then find stddev from CI
+            men_stddev = (np.log(men_upper) - np.log(men_lower)) / (2*1.96) 
+            women_stddev = (np.log(women_upper) - np.log(women_lower)) / (2*1.96) 
+
+            # sample the ratio in log space then take exp to get back to the ratio
+            men_RR = unit_truncnorm.rvs(size=1)[0] * men_stddev + np.log(men_mean)
+            women_RR = unit_truncnorm.rvs(size=1)[0] * women_stddev + np.log(women_mean)
+            men_RR = np.exp(men_RR)
+            women_RR = np.exp(women_RR)
+
             this_fsvcs_sampling.append([men_RR, women_RR])
 
         this_csvns_sampling = np.array(this_csvns_sampling)
         this_fsvcs_sampling = np.array(this_fsvcs_sampling)
         
         # save these mortality parameters for later analysis
-        num_i_digits = math.ceil(math.log10(args.num_mortparams))
-        i_str = str(i)
-        while len(i_str) < num_i_digits:
-            i_str = "0" + i_str
+        i_str = int_to_str(i, args.num_mortparams)
+
         np.save(os.path.join(mort_sets_dir, f"set_{i_str}_csvns.npy"), this_csvns_sampling)
         np.save(os.path.join(mort_sets_dir, f"set_{i_str}_fsvcs.npy"), this_fsvcs_sampling)
 
@@ -160,12 +182,15 @@ def main(args):
         )
     # endfor
 
-    # create the set of menthol ban parameters to be used for all combinations of mortality params and initpops
-    # ahead of time, that is before we actually use them in simulation
-    # also for each combination of short-term ban parameters, create long-term ban parameters
-    # based on values sent to me on 11/23/22
-    shortbanparams_25minus = np.array([0.,0.28,0.17,0.31,0.24])
-    shortbanparams_25plus = np.array([0.,0.22,0.24,0.42,0.12])
+    # SHORTBAN PARAMS
+
+    """
+    create the set of menthol ban parameters to be used for all combinations of mortality params and initpops
+    ahead of time, that is before we actually use them in simulation
+    """
+    shortbanparams_25minus = np.array([0.,0.28,0.17,0.29,0.26])
+    shortbanparams_25plus = np.array([0.,0.24,0.20,0.42,0.14])
+
     # this is needed to reduce the variance of the dirichlet sampling
     alpha_multiplier = 1000
 
@@ -179,12 +204,9 @@ def main(args):
             size=args.num_banparams,
             )
 
-    # save the individual ban parameter sets
+    # save the individual short-term ban parameter sets
     for i in range(args.num_banparams):
-        num_i_digits = math.ceil(math.log10(args.num_banparams))
-        i_str = str(i)
-        while len(i_str) < num_i_digits:
-            i_str = "0" + i_str
+        i_str = int_to_str(i, args.num_banparams)
 
         shortbanparams = np.concatenate([
             np.zeros((2,1)),
@@ -195,15 +217,37 @@ def main(args):
         ], axis=1)
 
         np.save(os.path.join(shortban_param_dir, f"set_{i_str}_shortbanparams.npy"), shortbanparams)
-    # now do long-term ban parameters:
-    # using machine epsilon instead of zeros
 
+    # LONGBAN PARAMS
+
+    """
+    Encode the longban params as a multinomial probability distribution
+    over the following groups:
+
+    1. former smoker
+    2. menthol smoker
+    3. nonmenthol smoker
+    4. ecig/dual user
+
+    These are the probabilities of menthol smokers switching 
+    to another smoking state due to the ban. They sum to 1.
+    Of course, we don't have a category for never smoker
+    because menthol smokers cannot become never smokers.
+    """
+    # using machine epsilon instead of zeros to avoid divide by zero errors
     longban_options = np.array([
-        [0.5, 0.25, 0.25],
-        [0.5, 0.5, np.finfo(float).eps],
-        [0.5, np.finfo(float).eps, 0.5],
-        [0.75, np.finfo(float).eps, 0.25],
+        [0.2, 0.5, 0.2, 0.1],
+        [0.4, 0.5, np.finfo(float).eps, 0.1],
+        [np.finfo(float).eps, 0.5, 0.4, 0.1],
+        [np.finfo(float).eps, 0.75, 0.25, 0.05],
+        [0.1, 0.5, 0.1, 0.3],
     ])
+
+    # create longban parameter directories for each long-term scenario 
+    longban_options_dirs = [os.path.join(longban_param_dir, f'option_{i+1}') for i in range(len(longban_options))]
+
+    for dir in longban_options_dirs:
+        os.mkdir(dir)
 
     for i, opt in enumerate(longban_options):
         option_num = i + 1
@@ -213,61 +257,44 @@ def main(args):
         )
         # save these where they should go
         for j in range(args.num_banparams):
-            num_j_digits = math.ceil(math.log10(args.num_banparams))
-            j_str = str(j)
-            while len(j_str) < num_j_digits:
-                j_str = "0" + j_str
-
             longbanparams = sample[j]
+            j_str = int_to_str(j, args.num_banparams)
 
             np.save(os.path.join(longban_options_dirs[i], f"option_{option_num}_set_{j_str}_longbanparams.npy"), longbanparams)
 
-    # Now get the initial populations. (25 for each set of mortality parameters)
-    for i in range(args.num_mortparams):
-        # get the mortality parameters
-        this_csvns_sampling, this_fsvcs_sampling = mortparamsset[i]
+    # INITPOPS
 
-        num_i_digits = math.ceil(math.log10(args.num_mortparams))
-        i_str = str(i)
-        while len(i_str) < num_i_digits:
-            i_str = "0" + i_str
-        this_init_pop_dir = init_pop_dirs[i]
+    # Now get the initial populations. (25 total)
+    for j in range(args.num_initpops):
+        j_str = int_to_str(j, args.num_initpops)
+        
+        # create simulation obj just to make initial populations
+        s = Simulation(pop_df=pop_df, 
+            beta2345=beta2345_arr, 
+            beta1=beta1_arr, 
+            life_tables=life_table_dict,
+            cohorts=cohorts_18_dict,
+            smoking_prevalences=smoking_prevalence_dict,
+            current_smoker_RR=base_mort_params[0],
+            former_smoker_RR=base_mort_params[1],
+            save_xl_fname='xl_output_calibrated',
+            save_np_fname='np_output_calibrated',
+            save_transition_np_fname='transitions_calibrated',
+            use_adjusted_death_rates=not args.simple_death_rates,
+            end_year = 2066,
+            target_initial_smoking_proportion=NHIS_smoking_percentage,
+            initiation_rate_decrease=0.055,
+            continuation_rate_decrease=0.055,
+            )
 
-        # now for each mortality parameter set, make an initial population
-        for j in range(args.num_initpops):
-            num_j_digits = math.ceil(math.log10(args.num_initpops))
-            j_str = str(j)
-            while len(j_str) < num_j_digits:
-                j_str = "0" + j_str
-            
-            # create simulation obj just to make initial populations
-            s = Simulation(pop_df=pop_df, 
-                beta2345=beta2345_arr, 
-                beta1=beta1_arr, 
-                life_tables=life_table_dict,
-                cohorts=cohorts_18_dict,
-                smoking_prevalences=smoking_prevalence_dict,
-                current_smoker_RR=this_csvns_sampling,
-                former_smoker_RR=this_fsvcs_sampling,
-                save_xl_fname='xl_output_calibrated',
-                save_np_fname='np_output_calibrated',
-                save_transition_np_fname='transitions_calibrated',
-                use_adjusted_death_rates=not args.simple_death_rates,
-                end_year = 2066,
-                target_initial_smoking_proportion=NHIS_smoking_percentage,
-                initiation_rate_decrease=0.055,
-                continuation_rate_decrease=0.055,
-                )
+        # create initial population
+        s.format_population()
+        beta_2345_aug, beta_1_aug = s.get_augmented_betas()
+        s.arr1, s.arr2345, s.arr6 = s.calibrate_initial_population(s.arr1, s.arr2345, s.arr6, beta_1_aug, beta_2345_aug)
 
-            # create initial population
-            s.format_population()
-            beta_2345_aug, beta_1_aug = s.get_augmented_betas()
-            s.arr1, s.arr2345, s.arr6 = s.calibrate_initial_population(s.arr1, s.arr2345, s.arr6, beta_1_aug, beta_2345_aug)
-
-            np.save(os.path.join(this_init_pop_dir, f'mort_{i_str}_pop_{j_str}_arr1.npy'), s.arr1)
-            np.save(os.path.join(this_init_pop_dir, f'mort_{i_str}_pop_{j_str}_arr6.npy'), s.arr6)
-            np.save(os.path.join(this_init_pop_dir, f'mort_{i_str}_pop_{j_str}_arr2345.npy'), s.arr2345)
-        #endfor
+        np.save(os.path.join(init_pop_dir, f'pop_{j_str}_arr1.npy'), s.arr1)
+        np.save(os.path.join(init_pop_dir, f'pop_{j_str}_arr6.npy'), s.arr6)
+        np.save(os.path.join(init_pop_dir, f'pop_{j_str}_arr2345.npy'), s.arr2345)
     #endfor
 
 

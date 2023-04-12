@@ -121,12 +121,13 @@ class Simulation(object):
             "year", 
             "black", 
             "poverty", 
+            "65plus",
             "smoking state",
             "count"
         ]
         self.input_columns = pop_df.columns
         self.output_list_to_df = []
-        self.output_numpy = np.zeros((end_year - start_year + 1, 2, 2, 6))
+        self.output_numpy = np.zeros((end_year - start_year + 1, 2, 2, 2, 6))
         self.output_transitions = []
         self.now_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
         # print(f"timestamp for this simulation object: {self.now_str}")
@@ -517,67 +518,75 @@ class Simulation(object):
         Given the current year, arrays with the current state,
         and output destination arrays, write data accordingly
         """
+        assert(len(output_numpy.shape) == 5)
+
         # probably a way to do this without loops but idk
         for black in [0,1]:
             for pov in [0,1]:
-                for smoking_state in [1,2,3,4,5,6]: 
-                    # determine count of people which fit the descriptors
-                    # count is weighted
-                    # note smoking state == 6 means dead
-                    count = None
-                    if smoking_state == 5 and arr2345 is None:
-                        count = 0
-                    elif smoking_state == 5:
-                        count = np.sum(
-                            (arr2345[:,10] == black) *
-                            (arr2345[:,13] == pov) *
-                            (arr2345[:,5] == 0) * 
-                            (arr2345[:,6] == 0) * 
-                            (arr2345[:,7] == 0) * 
-                            (arr2345[:,15])
-                        )
-                    elif smoking_state == 6 and arr6 is not None:
-                        count = np.sum(
-                            (arr6[:,10] == black) *
-                            (arr6[:,13] == pov) *
-                            (arr6[:,15])
-                        )
-                    elif smoking_state == 6 and arr6 is None:
-                        count = 0
-                    elif smoking_state == 1 and arr1 is None:
-                        count = 0
-                    elif smoking_state == 1:
-                        count = np.sum(
-                            (arr1[:,10] == black) *
-                            (arr1[:,13] == pov) *
-                            (arr1[:,15])
-                        )
-                    elif arr2345 is None and arr1 is None:
-                        count = 0
-                    elif arr2345 is None:
-                        count=0
-                    elif smoking_state in [2, 3, 4]:
-                        # smoking state must be 2, 3, or 4
-                        count = np.sum(
-                            (arr2345[:,10] == black) *
-                            (arr2345[:,13] == pov) *
-                            arr2345[:, 4 + smoking_state - 1] * 
-                            (arr2345[:,15])
-                        )
-                    else:
-                        raise Exception
-                    
-                    # write list and numpy arr
-                    output_list_to_df.append([
-                        cy + self.start_year,
-                        black,
-                        pov,
-                        smoking_state,
-                        count,
-                    ])
+                for plus65 in [0,1]:
+                    for smoking_state in [1,2,3,4,5,6]: 
+                        # determine count of people which fit the descriptors
+                        # count is weighted
+                        # note smoking state == 6 means dead
+                        count = None
+                        if smoking_state == 5 and arr2345 is None:
+                            count = 0
+                        elif smoking_state == 5:
+                            count = np.sum(
+                                (arr2345[:,10] == black) *
+                                (arr2345[:,13] == pov) *
+                                ((arr2345[:,11] >= 65) == plus65) * # check for if age is 65 plus
+                                (arr2345[:,5] == 0) * 
+                                (arr2345[:,6] == 0) * 
+                                (arr2345[:,7] == 0) * 
+                                (arr2345[:,15])
+                            )
+                        elif smoking_state == 6 and arr6 is not None:
+                            count = np.sum(
+                                (arr6[:,10] == black) *
+                                (arr6[:,13] == pov) *
+                                ((arr2345[:,11] >= 65) == plus65) * # check for if age is 65 plus
+                                (arr6[:,15])
+                            )
+                        elif smoking_state == 6 and arr6 is None:
+                            count = 0
+                        elif smoking_state == 1 and arr1 is None:
+                            count = 0
+                        elif smoking_state == 1:
+                            count = np.sum(
+                                (arr1[:,10] == black) *
+                                (arr1[:,13] == pov) *
+                                ((arr2345[:,11] >= 65) == plus65) * # check for if age is 65 plus
+                                (arr1[:,15])
+                            )
+                        elif arr2345 is None and arr1 is None:
+                            count = 0
+                        elif arr2345 is None:
+                            count=0
+                        elif smoking_state in [2, 3, 4]:
+                            # smoking state must be 2, 3, or 4
+                            count = np.sum(
+                                (arr2345[:,10] == black) *
+                                (arr2345[:,13] == pov) *
+                                ((arr2345[:,11] >= 65) == plus65) * # check for if age is 65 plus
+                                arr2345[:, 4 + smoking_state - 1] * 
+                                (arr2345[:,15])
+                            )
+                        else:
+                            raise Exception
+                        
+                        # write list and numpy arr
+                        output_list_to_df.append([
+                            cy + self.start_year,
+                            black,
+                            pov,
+                            plus65,
+                            smoking_state,
+                            count,
+                        ])
 
-                    output_numpy[cy,black,pov,smoking_state - 1] = count
-                    #endfor
+                        output_numpy[cy,black,pov,plus65,smoking_state - 1] = count
+                        #endfor
 
         return output_list_to_df, output_numpy
 

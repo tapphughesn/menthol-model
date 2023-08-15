@@ -186,7 +186,9 @@ def main(args):
 
     """
     create the set of menthol ban parameters to be used for all combinations of mortality params and initpops
-    ahead of time, that is before we actually use them in simulation
+    ahead of time, that is before we actually use them in simulation.
+
+    The same set of short ban params are used across all the long-term ban options. 
     """
     shortbanparams_25minus = np.array([0.,0.28,0.17,0.29,0.26])
     shortbanparams_25plus = np.array([0.,0.24,0.20,0.42,0.14])
@@ -239,7 +241,7 @@ def main(args):
         [0.2, 0.5, 0.2, 0.1],
         [0.4, 0.5, np.finfo(float).eps, 0.1],
         [np.finfo(float).eps, 0.5, 0.4, 0.1],
-        [np.finfo(float).eps, 0.75, 0.25, 0.05],
+        [np.finfo(float).eps, 0.75, 0.20, 0.05],
         [0.1, 0.5, 0.1, 0.3],
     ])
 

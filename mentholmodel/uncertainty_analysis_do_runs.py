@@ -1,5 +1,5 @@
 """
-This script takes the uncertainty analysis params that were generated last time and
+This script takes the uncertainty analysis params that were generated in stage 1 and
 uses them to do many runs of the simulation with different combinations of parameters.
 
 These are the categories of parameters:

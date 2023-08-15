@@ -545,7 +545,7 @@ class Simulation(object):
                             count = np.sum(
                                 (arr6[:,10] == black) *
                                 (arr6[:,13] == pov) *
-                                ((arr2345[:,11] >= 65) == plus65) * # check for if age is 65 plus
+                                ((arr6[:,11] >= 65) == plus65) * # check for if age is 65 plus
                                 (arr6[:,15])
                             )
                         elif smoking_state == 6 and arr6 is None:
@@ -556,7 +556,7 @@ class Simulation(object):
                             count = np.sum(
                                 (arr1[:,10] == black) *
                                 (arr1[:,13] == pov) *
-                                ((arr2345[:,11] >= 65) == plus65) * # check for if age is 65 plus
+                                ((arr1[:,11] >= 65) == plus65) * # check for if age is 65 plus
                                 (arr1[:,15])
                             )
                         elif arr2345 is None and arr1 is None:

@@ -235,6 +235,10 @@ def main(args):
     to another smoking state due to the ban. They sum to 1.
     Of course, we don't have a category for never smoker
     because menthol smokers cannot become never smokers.
+
+    The rows in the following array correspond to the ban
+    scenarios, and the elements in each row correspond to the
+    above probabilities.
     """
     # using machine epsilon instead of zeros to avoid divide by zero errors
     longban_options = np.array([

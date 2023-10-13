@@ -50,6 +50,7 @@ def main(args):
     print(args)
 
     if not os.path.isdir(results_dir):
+        print(results_dir)
         raise NotADirectoryError
 
     mort_sets_dir = os.path.join(results_dir, 'mortality_parameter_sets')
@@ -129,7 +130,7 @@ def main(args):
     # the goal is to have a "starting population" with the same smoking rate as that in NHIS
     # /Users/nick/Documents/Gillings_work/nhis_data/NHIS_smoker_proportions./NHIS_State_age/NHIS_State_age/NHIS_state_age18_64.xlsx
 
-    NHIS_smoking_percentage = 0.151316
+    NHIS_smoking_percentage = 0.151316 # this smoking rate comes from the NHIS
 
     for i in range(args.num_mortparams):
         i_str = int_to_str(i, args.num_mortparams)
@@ -241,15 +242,15 @@ if __name__ == '__main__':
     parser.add_argument('num_mortparams', 
                         type=int,
                         default=1,
-                        help='the number of sets of mortality parameters (relative risks) to draw')
+                        help='the number of sets of mortality parameters (relative risks) that were drawn')
     parser.add_argument('num_initpops', 
                         type=int,
                         default=1,
-                        help='the number of initial populations to create for each mortality parameter draw')
+                        help='the number of initial populations that were created for each mortality parameter draw')
     parser.add_argument('num_banparams', 
                         type=int,
                         default=1,
-                        help='the number of short term menthol ban parameters to draw in the case of a menthol ban')
+                        help='the number of short term menthol ban parameters that were drawn in the case of a menthol ban')
     parser.add_argument('ban_option', 
                         type=int,
                         default=0,

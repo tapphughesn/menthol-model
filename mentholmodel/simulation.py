@@ -80,7 +80,7 @@ class Simulation(object):
                  pop_df: pd.DataFrame, 
                  beta2345: np.ndarray, 
                  beta1: np.ndarray, 
-                 life_tables: dict,
+                 life_tables: dict=None,
                  cohorts: dict=None,
                  last_year_cohort_added: int=2031,
                  smoking_prevalences: dict=None,
@@ -125,7 +125,9 @@ class Simulation(object):
             "smoking state",
             "count"
         ]
-        self.input_columns = pop_df.columns
+        if pop_df is not None:
+            self.input_columns = pop_df.columns
+        else: self.input_columns = None
         self.output_list_to_df = []
         self.output_numpy = np.zeros((end_year - start_year + 1, 2, 2, 2, 6))
         self.output_transitions = []
@@ -633,6 +635,8 @@ class Simulation(object):
         in a format like: [0,0,1,0,0]
         return array has same length as input array "probs"
         """
+        if probs is None: return None
+
         chance = np.random.rand(probs.shape[0], 1)
         forward = np.concatenate([chance < np.sum(probs[:,:i], axis=1)[:,np.newaxis] for i in range(1, probs.shape[1] + 1)], axis=1)
         backward = np.concatenate([(1 - chance) < np.sum(probs[:,i:], axis=1)[:,np.newaxis] for i in range(probs.shape[1])], axis=1)
@@ -659,33 +663,40 @@ class Simulation(object):
 
     def get_transition_probs_from_LR(self, in_arr2345, in_arr1, in_beta_2345_aug, in_beta_1_aug):
         
-        logits_2345 = np.matmul(in_arr2345, in_beta_2345_aug).astype(np.float64)
-        assert(logits_2345.shape[1] == 3)
+        if in_arr2345 is not None:
+            logits_2345 = np.matmul(in_arr2345, in_beta_2345_aug).astype(np.float64)
+            assert(logits_2345.shape[1] == 3)
 
-        logits_1 = np.matmul(in_arr1, in_beta_1_aug).astype(np.float64)
-        assert(logits_1.shape[1] == 4)
+        if in_arr1 is not None:
+            logits_1 = np.matmul(in_arr1, in_beta_1_aug).astype(np.float64)
+            assert(logits_1.shape[1] == 4)
 
         # convert logits to probabilities
 
-        exps = np.exp(logits_2345)
-        p4 = 1 / (1 + np.sum(exps, axis=1))
-        probs2345 = np.asarray([
-            np.zeros(in_arr2345.shape[0]), # p1
-            p4*exps[:,0], # p2
-            p4*exps[:,1], # p3
-            p4,           # p4
-            p4*exps[:,2], # p5
-        ]).transpose()
 
-        exps = np.exp(logits_1)
-        p4 = 1 / (1 + np.sum(exps, axis=1))
-        probs1 = np.asarray([
-            p4*exps[:,0], # p1
-            p4*exps[:,1], # p2
-            p4*exps[:,2], # p3
-            p4,           # p4
-            p4*exps[:,3], # p5
-        ]).transpose()
+        if in_arr2345 is not None:
+            exps = np.exp(logits_2345)
+            p4 = 1 / (1 + np.sum(exps, axis=1))
+            probs2345 = np.asarray([
+                np.zeros(in_arr2345.shape[0]), # p1
+                p4*exps[:,0], # p2
+                p4*exps[:,1], # p3
+                p4,           # p4
+                p4*exps[:,2], # p5
+            ]).transpose()
+        else: probs2345 = None
+
+        if in_arr1 is not None:
+            exps = np.exp(logits_1)
+            p4 = 1 / (1 + np.sum(exps, axis=1))
+            probs1 = np.asarray([
+                p4*exps[:,0], # p1
+                p4*exps[:,1], # p2
+                p4*exps[:,2], # p3
+                p4,           # p4
+                p4*exps[:,3], # p5
+            ]).transpose()
+        else: probs1 = None
 
         return probs2345, probs1
 
@@ -803,88 +814,22 @@ class Simulation(object):
 
             if longbanparams is not None:
                 # assert sum(longbanparams) == 1
-                # long term ban params are 3 numbers:
-                # 1. proportion of menthol-continuers that still continue smoking menthol
-                # 2. proportion of menthol-continuers that transition to former smoker
+                # long term ban params are 4 numbers:
+                # 1. proportion of menthol-continuers that transition to former smoker
+                # 2. proportion of menthol-continuers that still continue smoking menthol
                 # 3. proportion of menthol-continuers that transition to non-menthol smoker
+                # 4. proportion of menthol-continuers that transition to ecig/dual
 
                 tmp = in_probs2345[are_menthol_smokers]
-                tmp[:,1] += tmp[:,2] * longbanparams[1] # to former
+                tmp[:,1] += tmp[:,2] * longbanparams[0] # to former
                 tmp[:,3] += tmp[:,2] * longbanparams[2] # to nonmenthol
-                tmp[:,2] *= longbanparams[0] # still menthol
+                tmp[:,4] += tmp[:,2] * longbanparams[3] # to nonmenthol
+                tmp[:,2] *= longbanparams[1] # still menthol
                 in_probs2345[are_menthol_smokers] = tmp
 
             else:
-                # code several long-term ban options explicitly, but this is deprecated now.
-                if self.long_term_option == 1:
-                    # print("long term option", self.long_term_option)
-                    # the probability that menthol smokers "remain the same"
-                    # is reduced
-                    tmp = in_probs2345[are_menthol_smokers]
-                    tmp[:,1] += tmp[:,2] * 0.5 
-                    tmp[:,2] *= 0.5
-                    in_probs2345[are_menthol_smokers] = tmp
-
-                    # the probability that non- (menthol smokers) become
-                    # menthol smokers vanishes.
-                    tmp = in_probs2345[not_menthol_smokers]
-                    tmp[:,2] = 0
-                    tmp /= np.sum(tmp, axis=1).reshape((-1,1))
-                    in_probs2345[not_menthol_smokers] = tmp
-
-                elif self.long_term_option == 2:
-                    # print("long term option", self.long_term_option)
-                    tmp = in_probs2345[are_menthol_smokers]
-                    tmp[:,1] += tmp[:,2] * 0.75
-                    tmp[:,2] *= 0.25
-                    in_probs2345[are_menthol_smokers] = tmp
-
-                    # the probability that non- (menthol smokers) become
-                    # menthol smokers vanishes.
-                    tmp = in_probs2345[not_menthol_smokers]
-                    tmp[:,2] = 0
-                    tmp /= np.sum(tmp, axis=1).reshape((-1,1))
-                    in_probs2345[not_menthol_smokers] = tmp
-                elif self.long_term_option == 3:
-                    # print("long term option", self.long_term_option)
-                    tmp = in_probs2345[are_menthol_smokers]
-                    tmp[:,3] += tmp[:,2] * 0.5 
-                    tmp[:,2] *= 0.5
-                    in_probs2345[are_menthol_smokers] = tmp
-
-                    # the probability that non- (menthol smokers) become
-                    # menthol smokers vanishes.
-                    tmp = in_probs2345[not_menthol_smokers]
-                    tmp[:,2] = 0
-                    tmp /= np.sum(tmp, axis=1).reshape((-1,1))
-                    in_probs2345[not_menthol_smokers] = tmp
-                elif self.long_term_option == 4:
-                    # print("long term option", self.long_term_option)
-                    tmp = in_probs2345[are_menthol_smokers]
-                    tmp[:,3] += tmp[:,2] * 0.25
-                    tmp[:,2] *= 0.75
-                    in_probs2345[are_menthol_smokers] = tmp
-
-                    # the probability that non- (menthol smokers) become
-                    # menthol smokers vanishes.
-                    tmp = in_probs2345[not_menthol_smokers]
-                    tmp[:,2] = 0
-                    tmp /= np.sum(tmp, axis=1).reshape((-1,1))
-                    in_probs2345[not_menthol_smokers] = tmp
-                elif self.long_term_option == 5:
-                    # print("long term option", self.long_term_option)
-                    tmp = in_probs2345[are_menthol_smokers]
-                    tmp[:,3] += tmp[:,2] * 0.375
-                    tmp[:,1] += tmp[:,2] * 0.375
-                    tmp[:,2] *= 0.25
-                    in_probs2345[are_menthol_smokers] = tmp
-
-                    # the probability that non- (menthol smokers) become
-                    # menthol smokers vanishes.
-                    tmp = in_probs2345[not_menthol_smokers]
-                    tmp[:,2] = 0
-                    tmp /= np.sum(tmp, axis=1).reshape((-1,1))
-                    in_probs2345[not_menthol_smokers] = tmp
+                # I used to code several long-term ban options explicitly, but that is deprecated now.
+                raise Exception("We have a menthol ban but no long-term ban parameters.")
         
         return in_probs2345, in_probs1
 
@@ -912,12 +857,12 @@ class Simulation(object):
         then the new probability of making the transition 3->2 is .37.
         """
         
-        if self.initiation_rate_decrease > 0:
+        if self.initiation_rate_decrease > 0 and in_probs1 is not None:
             in_probs1[:,0] += (1 - in_probs1[:,0]) * self.initiation_rate_decrease
             in_probs1[:,1:] -= in_probs1[:,1:] * self.initiation_rate_decrease
 
         # the first column of in_probs2345 is all zeros
-        if self.continuation_rate_decrease > 0:
+        if self.continuation_rate_decrease > 0 and in_probs2345 is not None:
             in_probs2345[:,1] += (1 - in_probs2345[:,1]) * self.continuation_rate_decrease
             in_probs2345[:,2:] -= in_probs2345[:,2:] * self.continuation_rate_decrease
 
@@ -1288,6 +1233,97 @@ class Simulation(object):
             # NOTE: never need to set ia=2 == 1 because everyone is 19 or older at this point
 
             self.arr2345[:,9] = (self.arr2345[:,8] == 0) * (self.arr2345[:,12] >= 18)
+
+            # endfor
+
+        # write data one last time for the final year
+
+        self.output_list_to_df, self.output_numpy = self.write_data(self.end_year - self.start_year, self.arr2345, self.arr1, self.arr6, self.output_list_to_df, self.output_numpy)
+
+        return
+
+    def simulation_loop_juan(self, beta_1_aug, beta_2345_aug, shortbanparams=None, longbanparams=None):
+        """
+        Next step is to loop over years, updating the pop each year
+        this is the main loop, simulating years 2016 - 2066
+        and writing out the stats
+        cy means current year
+        """
+        for cy in range(self.end_year - self.start_year):
+            """
+            Main loop and crux of the program.
+            Steps:
+                1. add cohorts of 18-year-olds if needed
+                2. write data to appropriate structures to be saved for later analysis
+                3. kill people according to life tables
+                4. update people's smoking statuses
+                    a. make sure to take care of hassmoked flag
+                5. update people's ages
+                6. update initation age group
+            """
+
+            # start by writing out the appropriate data
+            self.write_data(cy, self.arr2345, self.arr1, self.arr6, self.output_list_to_df, self.output_numpy)
+
+            # next we get the transition probabilities for people
+
+            probs2345, probs1 = self.get_transition_probs_from_LR(self.arr2345, self.arr1, beta_2345_aug, beta_1_aug)
+
+            # next we augment transition probabilities according to initiation and cessation parameters
+
+            probs2345, probs1 = self.adjust_transition_probs_according_to_initiation_cessation_params(probs2345, probs1)
+
+            # update current state, old state
+
+            if probs2345 is not None:
+                new_states2345 = self.random_select_arg_multinomial(probs2345)[:,:] # (s1, s2, s3, s4, s5)
+            else: new_states2345 = None
+            if probs1 is not None:
+                new_states1 = self.random_select_arg_multinomial(probs1)[:,:] # (s1, s2, s3, s4, s5)
+            else: new_states1 = None
+
+            # leaving_1 is True for each row in new_states1 which has chosen to transition to 2, 3, 4, or 5
+            if new_states1 is not None:
+                leaving_1 = np.sum(new_states1[:,1:], axis=1).astype(np.bool_)
+            else: leaving_1 = None
+
+            # move current states to last years states and
+            # the new states into the current states
+
+            if self.arr2345 is not None:
+                self.arr2345[:,2:5] = self.arr2345[:,5:8]
+                self.arr2345[:,1] = np.zeros(self.arr2345.shape[0]) # no more previous never smokers
+            # dont need to move arr1 stuff because arr1's previous state has not changed at all
+
+            if self.arr2345 is not None:
+                self.arr2345[:,5:8] = new_states2345[:,1:-1] 
+            if self.arr1 is not None:
+                self.arr1[:,5:8] = new_states1[:,1:-1]
+            
+            # move people from arr1 to arr2345 if they became a smoker
+
+            if self.arr1 is not None:
+                tmp_to_2345 = self.arr1[leaving_1]
+                self.arr1 = self.arr1[np.logical_not(leaving_1)]
+
+                if self.arr2345 is not None:
+                    self.arr2345 = np.concatenate([self.arr2345, tmp_to_2345], axis=0)
+                else:
+                    self.arr2345 = tmp_to_2345
+
+            # increment age param
+
+            if self.arr2345 is not None:
+                self.arr2345[:,11] += 1
+            if self.arr1 is not None:
+                self.arr1[:,11] += 1
+
+            # update inital age for people in arr2345 (ever smokers)
+            # if ia=1 == 0 and and age >= 18 then ia = 2
+            # NOTE: never need to set ia=2 == 1 because everyone is 19 or older at this point
+
+            if self.arr2345 is not None:
+                self.arr2345[:,9] = (self.arr2345[:,8] == 0) * (self.arr2345[:,12] >= 18)
 
             # endfor
 

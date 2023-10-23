@@ -38,8 +38,8 @@ def main(args):
 
     # Get Releative Risks for current smokers vs nonsmoker and former smoker vs current smoker
     # According to a published review
-    csvnsRR = pd.read_excel(os.path.join("..", "..", "smoking_mortality", "current_smoker_mortality_vs_nonsmoker.xlsx")).to_numpy()[:,1:]
-    fsvcsRR = pd.read_excel(os.path.join("..", "..", "smoking_mortality", "former_smoker_mortality_vs_current_smoker.xlsx")).to_numpy()[:,1:]
+    csvnsRR = pd.read_excel(os.path.join("..", "..", "smoking_mortality", "csvns_bounds.xlsx")).to_numpy()[:,1:3]
+    fsvcsRR = pd.read_excel(os.path.join("..", "..", "smoking_mortality", "fsvcs_bounds.xlsx")).to_numpy()[:,1:3]
 
     # Get population data
     # UNCALIBRATED
@@ -101,6 +101,7 @@ def main(args):
                     target_initial_smoking_proportion=NHIS_smoking_percentage,
                     initiation_rate_decrease=0.055,
                     continuation_rate_decrease=0.055,
+                    print_now_str=True
                     )
         s.simulate()
     

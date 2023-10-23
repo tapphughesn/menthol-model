@@ -100,6 +100,7 @@ class Simulation(object):
                  target_initial_smoking_proportion: float=0.15,
                  initiation_rate_decrease: float=0.0,
                  continuation_rate_decrease: float=0.0,
+                 print_now_str: bool=False,
                  ):
         
         self.pop_df = pop_df
@@ -132,7 +133,8 @@ class Simulation(object):
         self.output_numpy = np.zeros((end_year - start_year + 1, 2, 2, 2, 6))
         self.output_transitions = []
         self.now_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
-        # print(f"timestamp for this simulation object: {self.now_str}")
+        if print_now_str:
+            print(f"timestamp for this simulation object: {self.now_str}")
         self.menthol_ban = menthol_ban
         self.short_term_option = short_term_option
         self.long_term_option = long_term_option

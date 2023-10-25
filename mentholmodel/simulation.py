@@ -82,7 +82,7 @@ class Simulation(object):
                  beta1: np.ndarray, 
                  life_tables: dict=None,
                  cohorts: dict=None,
-                 last_year_cohort_added: int=2031,
+                 last_year_cohort_added: int=3000,
                  smoking_prevalences: dict=None,
                  current_smoker_RR: np.ndarray=None,
                  former_smoker_RR: np.ndarray=None,

@@ -1246,6 +1246,12 @@ class Simulation(object):
 
     def simulation_loop_juan(self, beta_1_aug, beta_2345_aug, shortbanparams=None, longbanparams=None):
         """
+        Same as simulation loop, but with some changes for
+        Juan (UNC Gillings PhD student)'s use case:
+        - no mortality
+        - no ban
+        - intended for use with populations with all the same starting state
+
         Next step is to loop over years, updating the pop each year
         this is the main loop, simulating years 2016 - 2066
         and writing out the stats

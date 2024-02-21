@@ -449,7 +449,7 @@ class Simulation(object):
         return a
     
     def cohort_to_indicator_form(self, c, current_year: int=2016):
-        # get it in path form (each row a person)
+        # get it in PATH form (each row a person)
         # with columns like the path population spreadsheet
         # then use path_to_indicator_form
 
@@ -495,6 +495,7 @@ class Simulation(object):
         # for people whose current state is 5, the year last smoked is self.start_year
         arr2345[np.sum(arr2345[:,5:8], axis=1) == 0,16] = current_year
 
+        # TODO: randomize year last smoked for people with ia 1 as well
         # for people in group 2 last state AND this state
         # if initialization age is 1 then year last smoked is self.year_last_smoked_for_ia1 + self.start_year - age
         ind = np.logical_and(arr2345[:,2], arr2345[:,5], arr2345[:,8]).astype(np.bool_)
@@ -506,6 +507,13 @@ class Simulation(object):
         to_multiply_rand = arr2345[ind, 11] - age_started + 1 - 1e-8
         to_add_after_multiply = current_year - arr2345[ind, 11] - 0.5 + 1e-8
         arr2345[ind ,16] = np.round(np.random.rand(np.sum(ind)) * to_multiply_rand + to_add_after_multiply)
+
+        # for people whose current state is 2 and previous state is 1, the year last smoked is this year
+        ind = np.logical_and(arr2345[:,1], arr2345[:,5]).astype(np.bool_)
+        arr2345[ind,16] = current_year
+
+        # finally, check that no one is left with a year last smoked = -1
+        assert(np.all(arr2345[:,16] != -1))
 
         return arr2345, arr1
 
@@ -614,6 +622,7 @@ class Simulation(object):
         # for people whose current state is 5, the year last smoked is self.start_year
         in_arr2345[np.sum(in_arr2345[:,5:8], axis=1) == 0,16] = current_year
 
+        # TODO: randomize year last smoked for people with ia 1 as well
         ### for people in group 2 last state AND this state
         # if initialization age is 1 then year last smoked is self.age_last_smoked_for_ia1 + self.start_year - age
         ind = np.logical_and(in_arr2345[:,2], in_arr2345[:,5], in_arr2345[:,8]).astype(np.bool_)
@@ -627,6 +636,12 @@ class Simulation(object):
         to_add_after_multiply = self.start_year - in_arr2345[ind, 11] - 0.5 + 1e-8
         in_arr2345[ind ,16] = np.round(np.random.rand(np.sum(ind)) * to_multiply_rand + to_add_after_multiply)
 
+        # for people whose current state is 2 and previous state is 1, the year last smoked is this year
+        ind = np.logical_and(in_arr2345[:,1], in_arr2345[:,5]).astype(np.bool_)
+        in_arr2345[ind,16] = current_year
+
+        # finally, check that no one is left with a year last smoked = -1
+        assert(np.all(in_arr2345[:,16] != -1))
         return in_arr2345
 
     # TODO: think of a better name for this function
@@ -839,22 +854,23 @@ class Simulation(object):
 
         """
         Tune probabilities according to initiation_rate_decrease
-        and cessation_rate_factor parameters. 
+        and continuation_rate_decrease parameters. 
+        Note: continuation is the opposite of cessation.
         
         The initiation_rate_decrease param tells you by
         how much to deacrease the initiation rate, that is,
         1 - (probability of a never smoker staying a never smoker).
 
-        The cessation_factor param tells you by how much to multiply
+        The continuation_rate_decrease param tells you by how much to multiply
         the cessation probability, i.e. the probability that people 
         transition into group 2 (former smokers). "Reducing continuation"
         is semantically equivalent to "increasing cessation."
 
-        Ex. If the probability of a person making the transition 1->1
+        E.g. If the probability of a person making the transition 1->1
         is .8, and we decrease the initiation rate by 30%, then the
         new probability of that person making the 1->1 is .86. 
 
-        Ex. If the probability of a person making the transition 3->2
+        E.g. If the probability of a person making the transition 3->2
         has probability 0.1 and the continuation rate is decreased by 30%
         then the new probability of making the transition 3->2 is .37.
         """

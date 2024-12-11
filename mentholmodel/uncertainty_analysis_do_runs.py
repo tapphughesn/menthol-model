@@ -162,8 +162,8 @@ def main(args):
                 k_str = int_to_str(k, args.num_banparams)
 
                 savename = os.path.join(output_dir, f'mort_{i_str}_pop_{j_str}_banparams_{k_str}_output.npy')
-                # if os.path.isfile(savename):
-                #     continue
+                if os.path.isfile(savename):
+                    continue
 
                 if args.ban_option == 0:
                     # status quo scenario, do simulations without menthol ban

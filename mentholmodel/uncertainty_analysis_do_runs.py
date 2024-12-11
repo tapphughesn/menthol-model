@@ -25,6 +25,7 @@ import os
 from datetime import datetime
 import math
 from glob import glob
+import debugpy
 
 def int_to_str(i: int, max: int) -> str:
     """
@@ -33,15 +34,19 @@ def int_to_str(i: int, max: int) -> str:
     so that all integers will have the same string length.
     """
 
-    num_i_digits = math.ceil(math.log10(max))
+    num_i_digits = math.ceil(math.log10(max) + np.finfo(float).eps)
     i_str = str(i)
+    if len(i_str) > num_i_digits: raise Exception("integer is too big for given max, need to increase the max")
     while len(i_str) < num_i_digits:
         i_str = "0" + i_str
     return i_str
 
 
 def main(args):
-
+    # debugpy.listen(("localhost", 5678))
+    # print("Waiting for debugger to attach...")
+    # debugpy.wait_for_client()
+    
     start = datetime.now()
     print(f"analysing timestamp: {args.timestamp}")
     results_dir = f'../../uncertainty_analysis_data/uncertainty_analysis_{args.timestamp}' # params are here
@@ -157,8 +162,8 @@ def main(args):
                 k_str = int_to_str(k, args.num_banparams)
 
                 savename = os.path.join(output_dir, f'mort_{i_str}_pop_{j_str}_banparams_{k_str}_output.npy')
-                if os.path.isfile(savename):
-                    continue
+                # if os.path.isfile(savename):
+                #     continue
 
                 if args.ban_option == 0:
                     # status quo scenario, do simulations without menthol ban
@@ -174,9 +179,9 @@ def main(args):
                         save_np_fname='np_output_calibrated',
                         save_transition_np_fname='transitions_calibrated',
                         use_adjusted_death_rates=not args.simple_death_rates,
-                        end_year = 2066,
+                        end_year = 2116,
                         menthol_ban=False,
-                        menthol_ban_year = 2021,
+                        menthol_ban_year = 2024,
                         target_initial_smoking_proportion=NHIS_smoking_percentage,
                         initiation_rate_decrease=0.055,
                         continuation_rate_decrease=0.055,
@@ -211,9 +216,9 @@ def main(args):
                         save_np_fname='np_output_calibrated',
                         save_transition_np_fname='transitions_calibrated',
                         use_adjusted_death_rates=not args.simple_death_rates,
-                        end_year = 2066,
+                        end_year = 2116,
                         menthol_ban=True,
-                        menthol_ban_year = 2021,
+                        menthol_ban_year = 2024,
                         target_initial_smoking_proportion=NHIS_smoking_percentage,
                         initiation_rate_decrease=0.055,
                         continuation_rate_decrease=0.055,

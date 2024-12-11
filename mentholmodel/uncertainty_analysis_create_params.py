@@ -287,7 +287,7 @@ def main(args):
             save_np_fname='np_output_calibrated',
             save_transition_np_fname='transitions_calibrated',
             use_adjusted_death_rates=not args.simple_death_rates,
-            end_year = 2066,
+            end_year = 2116,
             target_initial_smoking_proportion=NHIS_smoking_percentage,
             initiation_rate_decrease=0.055,
             continuation_rate_decrease=0.055,

@@ -91,16 +91,17 @@ class Simulation(object):
                  save_np_fname: str=None, 
                  save_transition_np_fname: str=None,
                  save_dir: str= '../../outputs/',
-                 end_year: int=2066, 
+                 end_year: int=2116, 
                  start_year: int=2016,
                  menthol_ban: bool=False,
                  short_term_option: int=1,
                  long_term_option: int=1,
-                 menthol_ban_year: int=2016,
+                 menthol_ban_year: int=2024,
                  target_initial_smoking_proportion: float=0.15,
                  initiation_rate_decrease: float=0.0,
                  continuation_rate_decrease: float=0.0,
                  print_now_str: bool=False,
+                 simulate_disease: bool=False,
                  ):
         
         self.pop_df = pop_df
@@ -167,6 +168,22 @@ class Simulation(object):
         self.arr2345 = None
         self.arr1 = None
         self.arr6 = None
+        
+        self.simulate_disease = simulate_disease
+        self.num_cvd_cases = {
+            "total": 0,
+            "black": 0,
+            "nonblack": 0,
+            "pov": 0,
+            "nonpov": 0,
+        }
+        self.num_lc_cases = {
+            "total": 0,
+            "black": 0,
+            "nonblack": 0,
+            "pov": 0,
+            "nonpov": 0,
+        }
         return
     
     def person_to_death_rate(self, p, ever_smoker: bool, current_year: int, use_previous_smoking_state: bool=False):
@@ -405,6 +422,172 @@ class Simulation(object):
         in_arr1 = in_arr1[np.logical_not(deaths_1)]
 
         return in_arr2345, in_arr1, in_arr6
+
+    def sample_disease_outcomes(self, current_year, arr2345, arr1):
+        """
+        Estimate 1-year incidence of CVD and LC for 65 year olds
+
+        for each person, get the cvd_risk and ls_risk 
+        these are a number between 0 and 1 that represents the chance
+        that the person gets cvd or ls in the next year.
+        These come from Duncan et al. 2019, Freeman et al. 2008
+
+        Then, use those risks to sample whether or not they got the disease.
+        Count the total number of diseases gotten.
+        """
+        # either current or former smokers
+        for p in arr2345:
+            # only estimate incidence for 65 year olds
+            if p[11] != 65: continue
+
+            cvd_risk = None
+            lc_risk = None
+            if p[5]:
+                # former smoker
+                years_since_smoked = current_year - int(p[16])
+                try:
+                    assert(years_since_smoked >= 0)
+                except AssertionError:
+                    print(years_since_smoked)
+                    print(p[16])
+                    print(current_year)
+                    raise
+                assert(isinstance(years_since_smoked, int))
+
+                if years_since_smoked < 5:
+                    # 1-4 years since smoked
+                    cvd_risk = 6.94 / 1000 
+                    if p[12]:
+                        # female
+                        lc_risk = 377.5 / 100000
+                    else:
+                        # male
+                        lc_risk = 451.8 / 100000 
+                elif years_since_smoked < 10:
+                    # 5-9 years since smoked
+                    cvd_risk = 7.04 / 1000 
+                    if p[12]:
+                        # female
+                        lc_risk = 248.5 / 100000
+                    else:
+                        # male
+                        lc_risk = 285.1 / 100000 
+                elif years_since_smoked < 15:
+                    # 10-14 years since smoked
+                    cvd_risk = 6.31 / 1000 
+                    if p[12]:
+                        #female
+                        lc_risk = 109.1 / 100000
+                    else:
+                        # male
+                        lc_risk = 97.4 / 100000 
+                elif years_since_smoked < 25:
+                    # 15-24 years since smoked
+                    cvd_risk = 6.11 / 1000 
+                    if p[12]:
+                        #female
+                        lc_risk = 109.1 / 100000
+                    else:
+                        # male
+                        lc_risk = 97.4 / 100000 
+                else:
+                    # 25 or more years since smoked
+                    cvd_risk = 5.02 / 1000 
+                    if p[12]:
+                        #female
+                        lc_risk = 109.1 / 100000
+                    else:
+                        # male
+                        lc_risk = 97.4 / 100000 
+
+            else:
+                # current smoker
+                cvd_risk = 5.02 / 1000 
+                if p[12]:
+                    #female
+                    lc_risk = 612.8 / 100000
+                else:
+                    # male
+                    lc_risk = 732.8 / 100000 
+            
+            # Now we have the cvd_risk and lc_risk for former and current smokers
+            # sample whether or not they get it
+            gets_cvd = np.random.rand() < cvd_risk
+            gets_lc = np.random.rand() < lc_risk
+
+            if gets_cvd:
+                self.num_cvd_cases["total"] += 1
+                if p[10]:
+                    # black
+                    self.num_cvd_cases["black"] += 1
+                else:
+                    # nonblack
+                    self.num_cvd_cases["nonblack"] += 1
+                if p[13]:
+                    # pov
+                    self.num_cvd_cases["pov"] += 1
+                else:
+                    # nonpov
+                    self.num_cvd_cases["nonpov"] += 1
+
+            if gets_lc:
+                self.num_lc_cases["total"] += 1
+                if p[10]:
+                    # black
+                    self.num_lc_cases["black"] += 1
+                else:
+                    # nonblack
+                    self.num_lc_cases["nonblack"] += 1
+                if p[13]:
+                    # pov
+                    self.num_lc_cases["pov"] += 1
+                else:
+                    # nonpov
+                    self.num_lc_cases["nonpov"] += 1
+        
+        for p in arr1:
+            # never smoker
+            cvd_risk = 5.09 / 1000 
+            if p[12]:
+                #female
+                lc_risk = 25.3 / 100000
+            else:
+                # male
+                lc_risk = 20.3 / 100000 
+
+            # sample whether or not they get it
+            gets_cvd = np.random.rand() < cvd_risk
+            gets_lc = np.random.rand() < lc_risk
+
+            if gets_cvd:
+                self.num_cvd_cases["total"] += 1
+                if p[10]:
+                    # black
+                    self.num_cvd_cases["black"] += 1
+                else:
+                    # nonblack
+                    self.num_cvd_cases["nonblack"] += 1
+                if p[13]:
+                    # pov
+                    self.num_cvd_cases["pov"] += 1
+                else:
+                    # nonpov
+                    self.num_cvd_cases["nonpov"] += 1
+
+            if gets_lc:
+                self.num_lc_cases["total"] += 1
+                if p[10]:
+                    # black
+                    self.num_lc_cases["black"] += 1
+                else:
+                    # nonblack
+                    self.num_lc_cases["nonblack"] += 1
+                if p[13]:
+                    # pov
+                    self.num_lc_cases["pov"] += 1
+                else:
+                    # nonpov
+                    self.num_lc_cases["nonpov"] += 1
 
     def path_to_indicator_form(self, a):
         """
@@ -679,6 +862,18 @@ class Simulation(object):
         return beta_2345_aug, beta_1_aug
 
     def get_transition_probs_from_LR(self, in_arr2345, in_arr1, in_beta_2345_aug, in_beta_1_aug):
+        """
+        Gets the transition probabilities for everyone
+
+        Transition probabilities have the shape (numpeople, 5)
+        Each row corresponds to a person
+        Each column corresponds to the transition probability for that state. Listed by index:
+            0 - never smoker
+            1 - former smoker
+            2 - menthol smoker
+            3 - nonmenthol smoker
+            4 - ecig/dual smoker
+        """
         
         if in_arr2345 is not None:
             logits_2345 = np.matmul(in_arr2345, in_beta_2345_aug).astype(np.float64)
@@ -819,18 +1014,18 @@ class Simulation(object):
 
             Prob that menthol smoker "remains the same" is reduced
             Where those menthol smokers that would have stayed the same
-            go varies from option to option. Either quit (former smoker) or nonmenthol smoker
+            go varies from option to option. Either quit (former smoker) or nonmenthol smoker or ecig
 
             All non-menthol smokers have 0 chance to transition to menthol smoking
             the other probabilites are scaled so that all sum to 1.0
             """
-            are_menthol_smokers = in_arr2345[:,6] == 1
-            not_menthol_smokers = in_arr2345[:,6] == 0
-            assert(len(in_probs2345) == sum(are_menthol_smokers) + sum(not_menthol_smokers))
-            assert(len(in_probs2345) == len(in_arr2345))
 
             if longbanparams is not None:
-                # assert sum(longbanparams) == 1
+                are_menthol_smokers = in_arr2345[:,6] == 1
+                not_menthol_smokers = in_arr2345[:,6] == 0
+                assert(len(in_probs2345) == sum(are_menthol_smokers) + sum(not_menthol_smokers))
+                assert(len(in_probs2345) == len(in_arr2345))
+
                 # long term ban params are 4 numbers:
                 # 1. proportion of menthol-continuers that transition to former smoker
                 # 2. proportion of menthol-continuers that still continue smoking menthol
@@ -840,9 +1035,21 @@ class Simulation(object):
                 tmp = in_probs2345[are_menthol_smokers]
                 tmp[:,1] += tmp[:,2] * longbanparams[0] # to former
                 tmp[:,3] += tmp[:,2] * longbanparams[2] # to nonmenthol
-                tmp[:,4] += tmp[:,2] * longbanparams[3] # to nonmenthol
+                tmp[:,4] += tmp[:,2] * longbanparams[3] # to ecig
                 tmp[:,2] *= longbanparams[1] # still menthol
                 in_probs2345[are_menthol_smokers] = tmp
+
+                # Also, make the chance that people transition from something else to menthol smoking zero
+                tmp = in_probs2345[not_menthol_smokers]
+                tmp[:,2] = np.zeros_like(tmp[:,2])
+                sum_chances = np.sum(tmp, axis=1)
+                tmp /= sum_chances.reshape(-1,1)
+                in_probs2345[not_menthol_smokers] = tmp
+
+                # Don't forget about arr1 (never smokers)
+                in_probs1[:,2] = np.zeros_like(in_probs1[:,2])
+                sum_chances = np.sum(in_probs1, axis=1)
+                in_probs1 /= sum_chances.reshape(-1,1)
 
             else:
                 # I used to code several long-term ban options explicitly, but that is deprecated now.
@@ -888,6 +1095,8 @@ class Simulation(object):
 
     def record_transitions(self, in_arr2345, in_arr1, in_leaving_1):
         """ 
+        Records how many of each transision is made in a year.
+
         we can calculate the number who died also from these numbers
         Here's what the list means
         list index | number of people in transition
@@ -1182,6 +1391,10 @@ class Simulation(object):
             # start by writing out the appropriate data
 
             self.write_data(cy, self.arr2345, self.arr1, self.arr6, self.output_list_to_df, self.output_numpy)
+
+            # determine which 65-year olds will get lung cancer or cardiovascular disease (CVD)
+            if self.simulate_disease:
+                self.sample_disease_outcomes(cy+self.start_year, self.arr2345, self.arr1)
 
             # continue by randomly determining if people
             # will die this year

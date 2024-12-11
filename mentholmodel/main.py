@@ -89,51 +89,25 @@ def main(args):
                     smoking_prevalences=smoking_prevalence_dict,
                     current_smoker_RR=csvnsRR,
                     former_smoker_RR=fsvcsRR,
-                    save_xl_fname='xl_output_calibrated',
-                    save_np_fname='np_output_calibrated',
-                    save_transition_np_fname='transitions_calibrated',
+                    save_xl_fname='xl_output_uncalibrated',
+                    save_np_fname='np_output_uncalibrated_dec5',
+                    save_transition_np_fname='transitions_uncalibrated',
                     use_adjusted_death_rates=not args.simple_death_rates,
-                    end_year = 2066,
+                    end_year = 2166,
                     menthol_ban=args.menthol_ban,
                     short_term_option=1,
                     long_term_option=5,
                     menthol_ban_year = 2021,
                     target_initial_smoking_proportion=NHIS_smoking_percentage,
-                    initiation_rate_decrease=0.055,
-                    continuation_rate_decrease=0.055,
-                    print_now_str=True
+                    # initiation_rate_decrease=0.055,
+                    # continuation_rate_decrease=0.055,
+                    initiation_rate_decrease=0,
+                    continuation_rate_decrease=0,
+                    print_now_str=True,
+                    simulate_disease=True,
                     )
         s.simulate()
     
-    # for i in range(21):
-    #     j = 5.0 + i / 10
-    #     i_str = str(j)
-    #     while len(i_str) < 3:
-    #         i_str = "0" + i_str
-    #     print(i_str)
-    #     assert(len(i_str) == 3)
-    #     s = Simulation(pop_df=pop_df, 
-    #                 beta2345=beta2345_arr, 
-    #                 beta1=beta1_arr, 
-    #                 life_tables=life_table_dict,
-    #                 cohorts=cohorts_18_dict,
-    #                 smoking_prevalences=smoking_prevalence_dict,
-    #                 current_smoker_RR=csvnsRR,
-    #                 former_smoker_RR=fsvcsRR,
-    #                 save_xl_fname=f'xl_output_calibrated_to_NHIS_' + i_str,
-    #                 save_np_fname=f'np_output_calibrated_to_NHIS_' + i_str,
-    #                 save_transition_np_fname=f'transitions_calibrated_' + i_str,
-    #                 use_adjusted_death_rates=not args.simple_death_rates,
-    #                 end_year = 2066,
-    #                 menthol_ban=args.menthol_ban,
-    #                 short_term_option=1,
-    #                 long_term_option=1,
-    #                 menthol_ban_year = 2021,
-    #                 target_initial_smoking_proportion=NHIS_smoking_percentage,
-    #                 initiation_rate_decrease=j/100,
-    #                 continuation_rate_decrease=j/100,
-    #                 )
-    #     s.simulate()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Specify simulation parameters')

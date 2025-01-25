@@ -90,6 +90,7 @@ class Simulation(object):
                  save_xl_fname: str=None, 
                  save_np_fname: str=None, 
                  save_transition_np_fname: str=None,
+                 save_disease_np_fname: str=None,
                  save_dir: str= '../../outputs/',
                  end_year: int=2116, 
                  start_year: int=2016,
@@ -118,6 +119,7 @@ class Simulation(object):
         self.save_xl_fname = save_xl_fname
         self.save_np_fname = save_np_fname
         self.save_transition_np_fname = save_transition_np_fname
+        self.save_disease_np_fname = save_disease_np_fname
         self.save_dir = save_dir
         self.output_columns = [
             "year", 
@@ -139,8 +141,6 @@ class Simulation(object):
         self.menthol_ban = menthol_ban
         self.short_term_option = short_term_option
         self.long_term_option = long_term_option
-        # print("short term option", short_term_option)
-        # print("long term option", long_term_option)
         self.menthol_ban_year = menthol_ban_year
         self.initiation_rate_decrease = initiation_rate_decrease
         assert(0.0 <= initiation_rate_decrease <= 1.0)
@@ -184,6 +184,8 @@ class Simulation(object):
             "pov": 0,
             "nonpov": 0,
         }
+        self.output_cvd = np.zeros((end_year - start_year + 1, 5))
+        self.output_lc = np.zeros((end_year - start_year + 1, 5))
         return
     
     def person_to_death_rate(self, p, ever_smoker: bool, current_year: int, use_previous_smoking_state: bool=False):
@@ -371,7 +373,7 @@ class Simulation(object):
                 print(np.min(arr1_death_rates))
 
         else:
-            print("Not using death rates adjusted for smokers, formersmokers, nonsmokers.")
+            # print("Not using death rates adjusted for smokers, formersmokers, nonsmokers.")
 
             life_table_year = min(self.start_year - 2, 2018)
             life_table_year = max(life_table_year, 2016)
@@ -423,7 +425,7 @@ class Simulation(object):
 
         return in_arr2345, in_arr1, in_arr6
 
-    def sample_disease_outcomes(self, current_year, arr2345, arr1):
+    def sample_disease_outcomes(self, cy, arr2345, arr1):
         """
         Estimate 1-year incidence of CVD and LC for 65 year olds
 
@@ -435,10 +437,18 @@ class Simulation(object):
         Then, use those risks to sample whether or not they got the disease.
         Count the total number of diseases gotten.
         """
+        current_year = cy+self.start_year
+
+        num_65yo = 0
+        num_gotLC = 0
+        num_gotCVD = 0
+
         # either current or former smokers
         for p in arr2345:
             # only estimate incidence for 65 year olds
             if p[11] != 65: continue
+
+            num_65yo += 1
 
             cvd_risk = None
             lc_risk = None
@@ -515,37 +525,47 @@ class Simulation(object):
             gets_cvd = np.random.rand() < cvd_risk
             gets_lc = np.random.rand() < lc_risk
 
+            num_gotCVD += gets_cvd
+            num_gotLC += gets_lc
+
+            # Track a weighted count of who gets what
             if gets_cvd:
-                self.num_cvd_cases["total"] += 1
+                self.num_cvd_cases["total"] += p[15]
                 if p[10]:
                     # black
-                    self.num_cvd_cases["black"] += 1
+                    self.num_cvd_cases["black"] += p[15]
                 else:
                     # nonblack
-                    self.num_cvd_cases["nonblack"] += 1
+                    self.num_cvd_cases["nonblack"] += p[15]
                 if p[13]:
                     # pov
-                    self.num_cvd_cases["pov"] += 1
+                    self.num_cvd_cases["pov"] += p[15]
                 else:
                     # nonpov
-                    self.num_cvd_cases["nonpov"] += 1
+                    self.num_cvd_cases["nonpov"] += p[15]
 
             if gets_lc:
-                self.num_lc_cases["total"] += 1
+                self.num_lc_cases["total"] += p[15]
                 if p[10]:
                     # black
-                    self.num_lc_cases["black"] += 1
+                    self.num_lc_cases["black"] += p[15]
                 else:
                     # nonblack
-                    self.num_lc_cases["nonblack"] += 1
+                    self.num_lc_cases["nonblack"] += p[15]
                 if p[13]:
                     # pov
-                    self.num_lc_cases["pov"] += 1
+                    self.num_lc_cases["pov"] += p[15]
                 else:
                     # nonpov
-                    self.num_lc_cases["nonpov"] += 1
+                    self.num_lc_cases["nonpov"] += p[15]
         
         for p in arr1:
+            if p[11] != 65: continue
+
+            num_65yo += 1
+
+            cvd_risk = None
+            lc_risk = None
             # never smoker
             cvd_risk = 5.09 / 1000 
             if p[12]:
@@ -559,35 +579,45 @@ class Simulation(object):
             gets_cvd = np.random.rand() < cvd_risk
             gets_lc = np.random.rand() < lc_risk
 
+            num_gotCVD += gets_cvd
+            num_gotLC += gets_lc
+
             if gets_cvd:
-                self.num_cvd_cases["total"] += 1
+                self.num_cvd_cases["total"] += p[15]
                 if p[10]:
                     # black
-                    self.num_cvd_cases["black"] += 1
+                    self.num_cvd_cases["black"] += p[15]
                 else:
                     # nonblack
-                    self.num_cvd_cases["nonblack"] += 1
+                    self.num_cvd_cases["nonblack"] += p[15]
                 if p[13]:
                     # pov
-                    self.num_cvd_cases["pov"] += 1
+                    self.num_cvd_cases["pov"] += p[15]
                 else:
                     # nonpov
-                    self.num_cvd_cases["nonpov"] += 1
+                    self.num_cvd_cases["nonpov"] += p[15]
 
             if gets_lc:
-                self.num_lc_cases["total"] += 1
+                self.num_lc_cases["total"] += p[15]
                 if p[10]:
                     # black
-                    self.num_lc_cases["black"] += 1
+                    self.num_lc_cases["black"] += p[15]
                 else:
                     # nonblack
-                    self.num_lc_cases["nonblack"] += 1
+                    self.num_lc_cases["nonblack"] += p[15]
                 if p[13]:
                     # pov
-                    self.num_lc_cases["pov"] += 1
+                    self.num_lc_cases["pov"] += p[15]
                 else:
                     # nonpov
-                    self.num_lc_cases["nonpov"] += 1
+                    self.num_lc_cases["nonpov"] += p[15]
+        if (cy==50):
+            print("------------------------------")
+            print("menthol ban", self.menthol_ban)
+            print("cy", cy)
+            print("Num 65yo", num_65yo)
+            print("num got cvd", num_gotCVD)
+            print("num got lc", num_gotLC)
 
     def path_to_indicator_form(self, a):
         """
@@ -783,6 +813,20 @@ class Simulation(object):
                         output_numpy[cy,black,pov,plus65,smoking_state - 1] = count
                         #endfor
 
+        if (self.simulate_disease):
+            # CVD
+            self.output_cvd[cy,0] = self.num_cvd_cases["total"]
+            self.output_cvd[cy,1] = self.num_cvd_cases["black"]
+            self.output_cvd[cy,2] = self.num_cvd_cases["nonblack"]
+            self.output_cvd[cy,3] = self.num_cvd_cases["pov"]
+            self.output_cvd[cy,4] = self.num_cvd_cases["nonpov"]
+
+            # LC
+            self.output_lc[cy,0] = self.num_lc_cases["total"]
+            self.output_lc[cy,1] = self.num_lc_cases["black"]
+            self.output_lc[cy,2] = self.num_lc_cases["nonblack"]
+            self.output_lc[cy,3] = self.num_lc_cases["pov"]
+            self.output_lc[cy,4] = self.num_lc_cases["nonpov"]
         return output_list_to_df, output_numpy
 
     def set_year_last_smoked(self, in_arr2345, current_year: int=2016):
@@ -1394,7 +1438,7 @@ class Simulation(object):
 
             # determine which 65-year olds will get lung cancer or cardiovascular disease (CVD)
             if self.simulate_disease:
-                self.sample_disease_outcomes(cy+self.start_year, self.arr2345, self.arr1)
+                self.sample_disease_outcomes(cy, self.arr2345, self.arr1)
 
             # continue by randomly determining if people
             # will die this year
@@ -1621,5 +1665,11 @@ class Simulation(object):
         if self.save_transition_np_fname is not None:
             fname = os.path.join(self.save_dir, 'transition_numbers/', os.path.basename(self.save_transition_np_fname) + '_' + self.now_str + '.npy')
             np.save(fname, np.asarray(self.output_transitions))
+
+        if self.save_disease_np_fname is not None and self.simulate_disease:
+            fname_cvd = os.path.join(self.save_dir, 'disease/', "CVD_" + os.path.basename(self.save_disease_np_fname) + '_' + self.now_str + '.npy')
+            np.save(fname_cvd, self.output_cvd)
+            fname_lc = os.path.join(self.save_dir, 'disease/', "LS_" + os.path.basename(self.save_disease_np_fname) + '_' + self.now_str + '.npy')
+            np.save(fname_lc, self.output_lc)
 
         return self.output_list_to_df, self.output_numpy

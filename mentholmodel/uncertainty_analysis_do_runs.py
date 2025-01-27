@@ -129,6 +129,7 @@ def main(args):
     cohorts_18_dict[2015] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 2 fresh population profile.xlsx")).to_numpy()
     cohorts_18_dict[2016] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 3 fresh population profile.xlsx")).to_numpy()
     cohorts_18_dict[2017] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 4 fresh population profile.xlsx")).to_numpy()
+    postban_18yo_cohort = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "postban population profile.xlsx")).to_numpy()
 
     # Get logistic regression betas
     beta2345_f = os.path.join("..","..","Output_SM","Betas","Beta_Estimates_2345.xlsx")
@@ -194,7 +195,8 @@ def main(args):
                         target_initial_smoking_proportion=NHIS_smoking_percentage,
                         initiation_rate_decrease=0.055,
                         continuation_rate_decrease=0.055,
-                        simulate_disease=True,
+                        simulate_disease=args.simple_death_rates, # we want to simulate disease only when doing simple death rates
+                        postban_18yo_cohort=postban_18yo_cohort,
                         )
                     
                     beta_2345_aug, beta_1_aug = t.get_augmented_betas()
@@ -236,7 +238,8 @@ def main(args):
                         target_initial_smoking_proportion=NHIS_smoking_percentage,
                         initiation_rate_decrease=0.055,
                         continuation_rate_decrease=0.055,
-                        simulate_disease=True,
+                        simulate_disease=args.simple_death_rates,
+                        postban_18yo_cohort=postban_18yo_cohort,
                         )
                     
                     beta_2345_aug, beta_1_aug = t.get_augmented_betas()

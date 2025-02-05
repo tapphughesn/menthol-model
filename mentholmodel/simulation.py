@@ -195,8 +195,16 @@ class Simulation(object):
             "pov": 0,
             "nonpov": 0,
         }
+        self.total_65yos = {
+            "total": 0,
+            "black": 0,
+            "nonblack": 0,
+            "pov": 0,
+            "nonpov": 0,
+        }
         self.output_cvd = np.zeros((end_year - start_year + 1, 5))
         self.output_lc = np.zeros((end_year - start_year + 1, 5))
+        self.output_65yos = np.zeros((end_year - start_year + 1, 5))
 
         self.postban_18yo_cohort = postban_18yo_cohort
         return
@@ -489,7 +497,22 @@ class Simulation(object):
             if p[11] != 65:
                 continue
 
-            num_65yo += 1
+            # track the total number of 65 year olds, for a denominator
+            self.total_65yos["total"] += p[15]
+            if p[10]:
+                # black
+                self.total_65yos["black"] += p[15]
+            else:
+                # nonblack
+                self.total_65yos["nonblack"] += p[15]
+            if p[13]:
+                # pov
+                self.total_65yos["pov"] += p[15]
+            else:
+                # nonpov
+                self.total_65yos["nonpov"] += p[15]
+
+            # num_65yo += 1
 
             cvd_risk = None
             lc_risk = None
@@ -604,7 +627,23 @@ class Simulation(object):
             if p[11] != 65:
                 continue
 
-            num_65yo += 1
+            # track the total number of 65 year olds, for a denominator
+            self.total_65yos["total"] += p[15]
+            if p[10]:
+                # black
+                self.total_65yos["black"] += p[15]
+            else:
+                # nonblack
+                self.total_65yos["nonblack"] += p[15]
+            if p[13]:
+                # pov
+                self.total_65yos["pov"] += p[15]
+            else:
+                # nonpov
+                self.total_65yos["nonpov"] += p[15]
+
+
+            # num_65yo += 1
 
             cvd_risk = None
             lc_risk = None
@@ -621,8 +660,8 @@ class Simulation(object):
             gets_cvd = np.random.rand() < cvd_risk
             gets_lc = np.random.rand() < lc_risk
 
-            num_gotCVD += gets_cvd
-            num_gotLC += gets_lc
+            # num_gotCVD += gets_cvd
+            # num_gotLC += gets_lc
 
             if gets_cvd:
                 self.num_cvd_cases["total"] += p[15]
@@ -653,13 +692,13 @@ class Simulation(object):
                 else:
                     # nonpov
                     self.num_lc_cases["nonpov"] += p[15]
-        if (cy == 50):
-            print("------------------------------")
-            print("menthol ban", self.menthol_ban)
-            print("cy", cy)
-            print("Num 65yo", num_65yo)
-            print("num got cvd", num_gotCVD)
-            print("num got lc", num_gotLC)
+        # if (cy == 50):
+            # print("------------------------------")
+            # print("menthol ban", self.menthol_ban)
+            # print("cy", cy)
+            # print("Num 65yo", num_65yo)
+            # print("num got cvd", num_gotCVD)
+            # print("num got lc", num_gotLC)
 
     def path_to_indicator_form(self, a):
         """
@@ -883,6 +922,13 @@ class Simulation(object):
             self.output_lc[cy, 2] = self.num_lc_cases["nonblack"]
             self.output_lc[cy, 3] = self.num_lc_cases["pov"]
             self.output_lc[cy, 4] = self.num_lc_cases["nonpov"]
+
+            # total number of 65 year olds who could've got a disease
+            self.output_65yos[cy, 0] = self.total_65yos["total"]
+            self.output_65yos[cy, 1] = self.total_65yos["black"]
+            self.output_65yos[cy, 2] = self.total_65yos["nonblack"]
+            self.output_65yos[cy, 3] = self.total_65yos["pov"]
+            self.output_65yos[cy, 4] = self.total_65yos["nonpov"]
         return output_list_to_df, output_numpy
 
     def set_year_last_smoked(self, in_arr2345, current_year: int = 2016):
@@ -1152,14 +1198,20 @@ class Simulation(object):
                 # 3. proportion of menthol-continuers that transition to non-menthol smoker
                 # 4. proportion of menthol-continuers that transition to ecig/dual
 
-                tmp = in_probs2345[are_menthol_smokers]
-                tmp[:, 1] += tmp[:, 2] * longbanparams[0]  # to former
-                tmp[:, 3] += tmp[:, 2] * longbanparams[2]  # to nonmenthol
-                tmp[:, 4] += tmp[:, 2] * longbanparams[3]  # to ecig
-                tmp[:, 2] *= longbanparams[1]  # still menthol
-                in_probs2345[are_menthol_smokers] = tmp
+                """
+                For the first 5 years of the ban, we will modify the transition probabilities of menthol smokers
+                If someone is still smoking menthol after 5 years of ban, we no longer modify their transition probabilities
+                (they are considered a staunch or hard-to-change person)
+                """
+                if current_year < self.menthol_ban_year - self.start_year + 5:
+                    tmp = in_probs2345[are_menthol_smokers]
+                    tmp[:, 1] += tmp[:, 2] * longbanparams[0]  # to former
+                    tmp[:, 3] += tmp[:, 2] * longbanparams[2]  # to nonmenthol
+                    tmp[:, 4] += tmp[:, 2] * longbanparams[3]  # to ecig
+                    tmp[:, 2] *= longbanparams[1]  # still menthol
+                    in_probs2345[are_menthol_smokers] = tmp
 
-                # Also, make the chance that people transition from something else to menthol smoking zero
+                # Make the chance that people transition from something else to menthol smoking zero
                 tmp = in_probs2345[not_menthol_smokers]
                 tmp[:, 2] = np.zeros_like(tmp[:, 2])
                 sum_chances = np.sum(tmp, axis=1)
@@ -1814,8 +1866,13 @@ class Simulation(object):
             fname_cvd = os.path.join(self.save_dir, 'disease/', "CVD_" + os.path.basename(
                 self.save_disease_np_fname) + '_' + self.now_str + '.npy')
             np.save(fname_cvd, self.output_cvd)
-            fname_lc = os.path.join(self.save_dir, 'disease/', "LS_" + os.path.basename(
+
+            fname_lc = os.path.join(self.save_dir, 'disease/', "LC_" + os.path.basename(
                 self.save_disease_np_fname) + '_' + self.now_str + '.npy')
             np.save(fname_lc, self.output_lc)
+
+            fname_total = os.path.join(self.save_dir, 'disease/', "TOTAL_" + os.path.basename(
+                self.save_disease_np_fname) + '_' + self.now_str + '.npy')
+            np.save(fname_total, self.output_65yos)
 
         return self.output_list_to_df, self.output_numpy

@@ -1,10 +1,16 @@
 #!/bin/bash
 
 # Check if the correct number of arguments is provided
-if [ $# -lt 1 ]; then
+if [ $# -lt 2 ]; then
     echo "Error: Missing arguments."
-    echo "Usage: $0 <num of mortsets>"
+    echo "Usage: $0 <num of mortsets> <doing disease modeling or not>"
     exit 1
+fi
+
+if [ "$2" -eq 1 ]; then
+    FLAG="--simple_death_rates"
+else
+    FLAG=""
 fi
 
 # Execute the first command and capture its output
@@ -20,29 +26,33 @@ if [[ $output =~ ([0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{6}
     echo ""
 
     # Use the extracted datetime as an argument to a secondary command
-    python -m uncertainty_analysis_do_runs $1 $1 $1 0 "$datetime" &
+    python -m uncertainty_analysis_do_runs $1 $1 $1 0 "$datetime" $FLAG &
     sleep 1
-    python -m uncertainty_analysis_do_runs $1 $1 $1 0 "$datetime" --second_half
+    # python -m uncertainty_analysis_do_runs $1 $1 $1 0 "$datetime" --second_half $FLAG
 
-    python -m uncertainty_analysis_do_runs $1 $1 $1 1 "$datetime" &
+    python -m uncertainty_analysis_do_runs $1 $1 $1 1 "$datetime" $FLAG  &
     sleep 1
-    python -m uncertainty_analysis_do_runs $1 $1 $1 1 "$datetime" --second_half
+    # python -m uncertainty_analysis_do_runs $1 $1 $1 1 "$datetime" --second_half $FLAG 
 
-    python -m uncertainty_analysis_do_runs $1 $1 $1 2 "$datetime" &
+    python -m uncertainty_analysis_do_runs $1 $1 $1 2 "$datetime" $FLAG  &
     sleep 1
-    python -m uncertainty_analysis_do_runs $1 $1 $1 2 "$datetime" --second_half
+    # python -m uncertainty_analysis_do_runs $1 $1 $1 2 "$datetime" --second_half $FLAG 
 
-    python -m uncertainty_analysis_do_runs $1 $1 $1 3 "$datetime" &
+    python -m uncertainty_analysis_do_runs $1 $1 $1 3 "$datetime" $FLAG  &
     sleep 1
-    python -m uncertainty_analysis_do_runs $1 $1 $1 3 "$datetime" --second_half
+    # python -m uncertainty_analysis_do_runs $1 $1 $1 3 "$datetime" --second_half $FLAG 
 
-    python -m uncertainty_analysis_do_runs $1 $1 $1 4 "$datetime" &
+    python -m uncertainty_analysis_do_runs $1 $1 $1 4 "$datetime" $FLAG  &
     sleep 1
-    python -m uncertainty_analysis_do_runs $1 $1 $1 4 "$datetime" --second_half
+    # python -m uncertainty_analysis_do_runs $1 $1 $1 4 "$datetime" --second_half $FLAG 
 
-    python -m uncertainty_analysis_do_runs $1 $1 $1 5 "$datetime" &
+    python -m uncertainty_analysis_do_runs $1 $1 $1 5 "$datetime" $FLAG  &
     sleep 1
-    python -m uncertainty_analysis_do_runs $1 $1 $1 5 "$datetime" --second_half
+    # python -m uncertainty_analysis_do_runs $1 $1 $1 5 "$datetime" --second_half $FLAG 
+
+    wait
+    echo ""
+    echo "Timestamp: $datetime"
 else
     echo "No datetime string found in the output."
     exit 1

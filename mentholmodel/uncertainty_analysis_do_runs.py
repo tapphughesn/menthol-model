@@ -173,6 +173,7 @@ def main(args):
                 #     continue
                 disease_savename_cvd = os.path.join(disease_output_dir, f'mort_{i_str}_pop_{j_str}_banparams_{k_str}_disease_output_cvd.npy' )
                 disease_savename_lc = os.path.join(disease_output_dir, f'mort_{i_str}_pop_{j_str}_banparams_{k_str}_disease_output_lc.npy' )
+                disease_savename_total = os.path.join(disease_output_dir, f'mort_{i_str}_pop_{j_str}_banparams_{k_str}_disease_output_total.npy' )
 
                 if args.ban_option == 0:
                     # status quo scenario, do simulations without menthol ban
@@ -208,6 +209,7 @@ def main(args):
                     
                     np.save(disease_savename_cvd, t.output_cvd)
                     np.save(disease_savename_lc, t.output_lc)
+                    np.save(disease_savename_total, t.output_65yos)
 
                     progress = i/args.num_mortparams + j/args.num_initpops/args.num_mortparams + k/args.num_banparams/args.num_initpops/args.num_mortparams
                     seconds_since_start = int((datetime.now() - start).total_seconds())
@@ -251,6 +253,7 @@ def main(args):
 
                     np.save(disease_savename_cvd, t.output_cvd)
                     np.save(disease_savename_lc, t.output_lc)
+                    np.save(disease_savename_total, t.output_65yos)
                     
                     progress = i/args.num_mortparams + j/args.num_initpops/args.num_mortparams + k/args.num_banparams/args.num_initpops/args.num_mortparams
                     seconds_since_start = int((datetime.now() - start).total_seconds())

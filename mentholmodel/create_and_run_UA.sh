@@ -25,7 +25,7 @@ if [[ $output =~ ([0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{6}
     datetime="${BASH_REMATCH[1]}"
     echo ""
 
-    # Use the extracted datetime as an argument to a secondary command
+    # Do the runs
     python -m uncertainty_analysis_do_runs $1 $1 $1 0 "$datetime" $FLAG &
     sleep 1
     # python -m uncertainty_analysis_do_runs $1 $1 $1 0 "$datetime" --second_half $FLAG

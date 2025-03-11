@@ -179,6 +179,7 @@ class Simulation(object):
         self.arr2345 = None
         self.arr1 = None
         self.arr6 = None
+        self.arr6_noncohort = None # arr6 is used for the LYL measure, so this is needed to exclude people not in the cohort of interest
 
         self.simulate_disease = simulate_disease
         self.num_cvd_cases = {
@@ -380,7 +381,7 @@ class Simulation(object):
         print("While trying to determine person's death chance, they didn't fit into any smoking category")
         raise Exception
 
-    def simulate_deaths(self, in_arr2345, in_arr1, in_arr6, current_year: int, use_previous_smoking_state: bool = False):
+    def simulate_deaths(self, in_arr2345, in_arr1, in_arr6, current_year: int, use_previous_smoking_state: bool = False, in_arr6_noncohort):
         """
         Move people (rows) from in_arr2345, in_arr1 to in_arr6 as they die.
         Calculate mortality rates and use them as death chances for individual people.
@@ -425,7 +426,6 @@ class Simulation(object):
                 np.float64)
 
             arr2345_ages = in_arr2345[:, 11].astype(np.int32)
-            # does not overwrite arr2345
             arr2345_ages = list(arr2345_ages.clip(min=0, max=100))
 
             arr1_ages = in_arr1[:, 11].astype(np.int32)
@@ -451,24 +451,82 @@ class Simulation(object):
         chance_2345 = np.random.rand(len(in_arr2345)).astype(np.float64)
         deaths_2345 = arr2345_death_rates > chance_2345
 
-        if in_arr6 is None:
-            in_arr6 = np.copy(in_arr2345)[deaths_2345]
-        else:
-            in_arr6 = np.concatenate(
-                [in_arr6, np.copy(in_arr2345)[deaths_2345]], axis=0)
-
-        in_arr2345 = in_arr2345[np.logical_not(deaths_2345)]
-
         # determine deaths in arr1
         chance_1 = np.random.rand(len(in_arr1)).astype(np.float64)
         deaths_1 = arr1_death_rates > chance_1
 
-        if in_arr6 is None:
-            in_arr6 = np.copy(in_arr1)[deaths_1]
+        # now it is time to put dead people in arr6
+
+        """
+        The Life Years Lived (LYL) cohort minimum age is 18 in 2035, and max age is 74 in 2035
+        But, we write out data at the start of the year, then calculate deaths, then age up people.
+        So, we are actually looking at people who are 18-74 in 2034, since that data will be written for 2035
+        So, someone's birth year has to be 1960-2016 (inclusive).
+        Birth year can be calculated as current year - age
+        """
+        LYL_cohort_max_birth_year = 2016
+        LYL_cohort_min_birth_year = 1960
+
+        # determine who will be in the life years lived (LYL) cohort
+        arr1_ages = in_arr1[:, 11].astype(np.int32)
+        arr1_inLylCohort = np.logical_and(
+            (current_year - arr1_ages) <= LYL_cohort_max_birth_year,
+            (current_year - arr1_ages) >= LYL_cohort_min_birth_year,
+        )
+        arr2345_ages = in_arr2345[:, 11].astype(np.int32)
+        arr2345_inLylCohort = np.logical_and(
+            (current_year - arr2345_ages) <= LYL_cohort_max_birth_year,
+            (current_year - arr2345_ages) >= LYL_cohort_min_birth_year,
+        )
+
+        arr2345_dead_LYL = np.copy(in_arr2345)[deaths_2345 & arr2345_inLylCohort]
+        arr2345_dead_nonLYL  = np.copy(in_arr2345)[deaths_2345 & np.logical_not(arr2345_inLylCohort)]
+            
+        arr1_dead_LYL = np.copy(in_arr1)[deaths_1 & arr1_inLylCohort]
+        arr1_dead_nonLYL  = np.copy(in_arr1)[deaths_1 & np.logical_not(arr1_inLylCohort)]
+
+        # put dead people in the appropriate arr6
+        # start with peole in the LYL cohort
+
+        if in_arr6 is None or (len(in_arr6) == 0):
+            in_arr6 = np.concatenate([
+                arr1_dead_LYL,
+                arr2345_dead_LYL,
+            ])
+        else:
+            in_arr6 = np.concatenate([
+                in_arr6, 
+                arr1_dead_LYL,
+                arr2345_dead_LYL,
+            ])
+            
+        if (in_arr6_noncohort is None) or (len(in_arr6_noncohort) == 0):
+            in_arr6 = np.concatenate([
+                arr1_dead_LYL,
+                arr2345_dead_LYL,
+            ])
+        else:
+            in_arr6 = np.concatenate([
+                in_arr6, 
+                arr1_dead_LYL,
+                arr2345_dead_LYL,
+            ])
+
+
+        if in_arr6 is None or (len(in_arr6) == 0):
+            in_arr6 = np.copy(in_arr1)[deaths_1 & arr1_inLylCohort]
         else:
             in_arr6 = np.concatenate(
-                [in_arr6, np.copy(in_arr1)[deaths_1]], axis=0)
+                [in_arr6, np.copy(in_arr1)[deaths_1 & arr1_inLylCohort]], axis=0)
 
+        if (in_arr6_noncohort is None) or (len(in_arr6_noncohort) == 0):
+            in_arr6_noncohort  = np.copy(in_arr1)[deaths_1 & np.logical_not(arr1_inLylCohort)]
+        else:
+            in_arr6_noncohort  = np.concatenate(
+                [in_arr6_noncohort , np.copy(in_arr1)[deaths_1 & np.logical_not(arr1_inLylCohort)]], axis=0)
+
+        # take the dead people out of arr2345, arr1
+        in_arr2345 = in_arr2345[np.logical_not(deaths_2345)]
         in_arr1 = in_arr1[np.logical_not(deaths_1)]
 
         return in_arr2345, in_arr1, in_arr6
@@ -487,7 +545,7 @@ class Simulation(object):
         """
         current_year = cy+self.start_year
 
-        num_65yo = 0
+        # num_65yo = 0
         num_gotLC = 0
         num_gotCVD = 0
 
@@ -696,7 +754,6 @@ class Simulation(object):
             # print("------------------------------")
             # print("menthol ban", self.menthol_ban)
             # print("cy", cy)
-            # print("Num 65yo", num_65yo)
             # print("num got cvd", num_gotCVD)
             # print("num got lc", num_gotLC)
 
@@ -1610,23 +1667,23 @@ class Simulation(object):
             # will die this year
 
             self.arr2345, self.arr1, self.arr6 = self.simulate_deaths(
-                self.arr2345, self.arr1, self.arr6, current_year=cy + self.start_year)
+                self.arr2345, self.arr1, self.arr6, current_year=cy + self.start_year, in_arr6_noncohort=self.arr6_noncohort)
 
             # next we get the transition probabilities for people
 
             probs2345, probs1 = self.get_transition_probs_from_LR(
                 self.arr2345, self.arr1, beta_2345_aug, beta_1_aug)
 
+            # next we augment transition probabilities according to initiation and cessation parameters
+
+            probs2345, probs1 = self.adjust_transition_probs_according_to_initiation_cessation_params(
+                probs2345, probs1)
+
             # next we augment transition probabilities according to menthol ban effects
 
             if self.menthol_ban:
                 probs2345, probs1 = self.adjust_transition_probs_according_to_menthol_ban(
                     self.arr2345, self.arr1, probs2345, probs1, current_year=cy, shortbanparams=shortbanparams, longbanparams=longbanparams)
-
-            # next we augment transition probabilities according to initiation and cessation parameters
-
-            probs2345, probs1 = self.adjust_transition_probs_according_to_initiation_cessation_params(
-                probs2345, probs1)
 
             # update current state, old state
 

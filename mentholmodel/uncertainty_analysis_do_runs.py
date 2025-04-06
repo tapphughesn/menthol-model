@@ -64,6 +64,7 @@ def main(args):
     longban_param_dir = os.path.join(results_dir, 'long_term_menthol_ban_parameter_sets')
     output_dir = os.path.join(results_dir, 'outputs')
     disease_output_dir = os.path.join(results_dir, 'disease_modeling_outputs')
+    LYL_output_dir = os.path.join(results_dir, 'LYL_outputs')
 
     # create longban parameter directories for each long-term scenario
     longban_options_dirs = sorted(glob(os.path.join(longban_param_dir, f'option_*')))
@@ -72,15 +73,20 @@ def main(args):
         os.mkdir(output_dir)
     if not os.path.isdir(disease_output_dir):
         os.mkdir(disease_output_dir)
+    if not os.path.isdir(LYL_output_dir):
+        os.mkdir(LYL_output_dir)
 
     # create output dir for this option, rewriting the variable output_dir
     output_dir = os.path.join(output_dir, f"option_{args.ban_option}")
     disease_output_dir = os.path.join(disease_output_dir, f"option_{args.ban_option}")
+    LYL_output_dir = os.path.join(LYL_output_dir, f"option_{args.ban_option}")
 
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
     if not os.path.isdir(disease_output_dir):
         os.mkdir(disease_output_dir)
+    if not os.path.isdir(LYL_output_dir):
+        os.mkdir(LYL_output_dir)
     
     # Get life tables
     # Used for death rates
@@ -175,6 +181,8 @@ def main(args):
                 disease_savename_lc = os.path.join(disease_output_dir, f'mort_{i_str}_pop_{j_str}_banparams_{k_str}_disease_output_lc.npy' )
                 disease_savename_total = os.path.join(disease_output_dir, f'mort_{i_str}_pop_{j_str}_banparams_{k_str}_disease_output_total.npy' )
 
+                LYL_savename = os.path.join(LYL_output_dir, f'mort_{i_str}_pop_{j_str}_banparams_{k_str}_LYL_output.npy' )
+
                 if args.ban_option == 0:
                     # status quo scenario, do simulations without menthol ban
                     t = Simulation(pop_df=pop_df, 
@@ -189,8 +197,9 @@ def main(args):
                         save_np_fname='np_output_calibrated',
                         save_transition_np_fname='transitions_calibrated',
                         save_disease_np_fname='disease_incidence_output',
+                        save_LYL_np_fname='live_years_output',
                         use_adjusted_death_rates=not args.simple_death_rates,
-                        end_year = 2116,
+                        end_year = 2166,
                         menthol_ban=False,
                         menthol_ban_year = 2024,
                         target_initial_smoking_proportion=NHIS_smoking_percentage,
@@ -210,6 +219,8 @@ def main(args):
                     np.save(disease_savename_cvd, t.output_cvd)
                     np.save(disease_savename_lc, t.output_lc)
                     np.save(disease_savename_total, t.output_65yos)
+
+                    np.save(LYL_savename, t.output_LYL)
 
                     progress = i/args.num_mortparams + j/args.num_initpops/args.num_mortparams + k/args.num_banparams/args.num_initpops/args.num_mortparams
                     seconds_since_start = int((datetime.now() - start).total_seconds())
@@ -233,8 +244,9 @@ def main(args):
                         save_np_fname='np_output_calibrated',
                         save_transition_np_fname='transitions_calibrated',
                         save_disease_np_fname='disease_incidence_output',
+                        save_LYL_np_fname='live_years_output',
                         use_adjusted_death_rates=not args.simple_death_rates,
-                        end_year = 2116,
+                        end_year = 2166,
                         menthol_ban=True,
                         menthol_ban_year = 2024,
                         target_initial_smoking_proportion=NHIS_smoking_percentage,
@@ -254,6 +266,8 @@ def main(args):
                     np.save(disease_savename_cvd, t.output_cvd)
                     np.save(disease_savename_lc, t.output_lc)
                     np.save(disease_savename_total, t.output_65yos)
+
+                    np.save(LYL_savename, t.output_LYL)
                     
                     progress = i/args.num_mortparams + j/args.num_initpops/args.num_mortparams + k/args.num_banparams/args.num_initpops/args.num_mortparams
                     seconds_since_start = int((datetime.now() - start).total_seconds())

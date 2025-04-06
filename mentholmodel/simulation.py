@@ -92,6 +92,7 @@ class Simulation(object):
                  save_np_fname: str = None,
                  save_transition_np_fname: str = None,
                  save_disease_np_fname: str = None,
+                 save_LYL_np_fname: str = None,
                  save_dir: str = '../../outputs/',
                  end_year: int = 2116,
                  start_year: int = 2016,
@@ -125,6 +126,7 @@ class Simulation(object):
         self.save_np_fname = save_np_fname
         self.save_transition_np_fname = save_transition_np_fname
         self.save_disease_np_fname = save_disease_np_fname
+        self.save_LYL_np_fname = save_LYL_np_fname
         self.save_dir = save_dir
         self.output_columns = [
             "year",
@@ -208,6 +210,8 @@ class Simulation(object):
         self.output_65yos = np.zeros((end_year - start_year + 1, 5))
 
         self.postban_18yo_cohort = postban_18yo_cohort
+
+        self.output_LYL = np.zeros(5)
         return
 
     def person_to_death_rate(self, p, ever_smoker: bool, current_year: int, use_previous_smoking_state: bool = False):
@@ -513,7 +517,7 @@ class Simulation(object):
         in_arr2345 = in_arr2345[np.logical_not(deaths_2345)]
         in_arr1 = in_arr1[np.logical_not(deaths_1)]
 
-        return in_arr2345, in_arr1, in_arr6
+        return in_arr2345, in_arr1, in_arr6, in_arr6_noncohort
 
     def sample_disease_outcomes(self, cy, arr2345, arr1):
         """
@@ -1456,7 +1460,7 @@ class Simulation(object):
 
         # Simulate death for 1 year using wave 2 rates:
 
-        arr2345, arr1, arr6 = self.simulate_deaths(
+        arr2345, arr1, arr6, arr6_noncohort = self.simulate_deaths(
             arr2345,
             arr1,
             arr6,
@@ -1480,7 +1484,7 @@ class Simulation(object):
 
         # deaths using wave 2 smoking states
 
-        arr2345, arr1, arr6 = self.simulate_deaths(
+        arr2345, arr1, arr6, arr6_noncohort = self.simulate_deaths(
             arr2345,
             arr1,
             arr6,
@@ -1489,7 +1493,7 @@ class Simulation(object):
             in_arr6_noncohort=arr6_noncohort,
         )
 
-        c2345, c1, arr6 = self.simulate_deaths(
+        c2345, c1, arr6, arr6_noncohort = self.simulate_deaths(
             c2345,
             c1,
             arr6,
@@ -1552,10 +1556,6 @@ class Simulation(object):
         arr2345 = self.set_year_last_smoked(
             arr2345, current_year=self.start_year)
 
-        # get snapshot of population
-        # np.save("../../misc/arr2345_uncalibrated", arr2345)
-        # np.save("../../misc/arr1_uncalibrated", arr1)
-
         # Calibrate the population to NHIS smoking rate
 
         arr2345, arr1 = self.calibrate_smoking_percentage(
@@ -1564,7 +1564,7 @@ class Simulation(object):
             target_smoker_percentage=self.target_initial_smoking_percentage,
         )
 
-        return arr1, arr2345, arr6
+        return arr1, arr2345, arr6, arr6_noncohort
 
     def format_population(self):
         pop_arr = self.pop_df.to_numpy(dtype=np.float64)
@@ -1740,6 +1740,9 @@ class Simulation(object):
         Calculate the number of Life Years Lived (LYL)
         for this run of the simulation, stratified by our demographic groups.
 
+        This assumes that the in_arr6 parameter only contains dead people
+        that belong to the LYL cohort.
+
         output_LYL is a 1D array with 5 elements
         here are the indices as well as a description of each element:
         0 - number of LYL in the total LYL cohort
@@ -1749,12 +1752,11 @@ class Simulation(object):
         4 - number of LYL in the nonpov LYL cohort
         """
 
-        output_LYL = np.zeros(5)
-        output_LYL[0] = np.sum(in_arr6[:,11])
-        output_LYL[1] = np.sum((in_arr6[:,10] == 1) * in_arr6[:,11])
-        output_LYL[2] = np.sum((in_arr6[:,10] == 0) * in_arr6[:,11])
-        output_LYL[3] = np.sum((in_arr6[:,13] == 1) * in_arr6[:,11])
-        output_LYL[4] = np.sum((in_arr6[:,13] == 0) * in_arr6[:,11])
+        self.output_LYL[0] = np.sum(in_arr6[:,11])
+        self.output_LYL[1] = np.sum((in_arr6[:,10] == 1) * in_arr6[:,11])
+        self.output_LYL[2] = np.sum((in_arr6[:,10] == 0) * in_arr6[:,11])
+        self.output_LYL[3] = np.sum((in_arr6[:,13] == 1) * in_arr6[:,11])
+        self.output_LYL[4] = np.sum((in_arr6[:,13] == 0) * in_arr6[:,11])
 
         return output_LYL
 
@@ -1823,5 +1825,11 @@ class Simulation(object):
             fname_total = os.path.join(self.save_dir, 'disease/', "TOTAL_" + os.path.basename(
                 self.save_disease_np_fname) + '_' + self.now_str + '.npy')
             np.save(fname_total, self.output_65yos)
+        
+        if self.save_LYL_np_fname is not None:
+            self.output_LYL = self.determine_LYL(self.arr6)
+            fname = os.path.join(self.save_dir, 'LYL/', 'LYL_' + os.path.basename(
+                self.save_LYL_np_fname) + '_' + self.now_str + '.npy')
+            np.save(fname, self.output_LYL)
 
         return self.output_list_to_df, self.output_numpy

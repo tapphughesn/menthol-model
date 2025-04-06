@@ -381,7 +381,7 @@ class Simulation(object):
         print("While trying to determine person's death chance, they didn't fit into any smoking category")
         raise Exception
 
-    def simulate_deaths(self, in_arr2345, in_arr1, in_arr6, current_year: int, use_previous_smoking_state: bool = False, in_arr6_noncohort):
+    def simulate_deaths(self, in_arr2345, in_arr1, in_arr6, current_year: int, use_previous_smoking_state: bool = False, in_arr6_noncohort = None):
         """
         Move people (rows) from in_arr2345, in_arr1 to in_arr6 as they die.
         Calculate mortality rates and use them as death chances for individual people.
@@ -391,7 +391,6 @@ class Simulation(object):
         arr2345_death_rates = None
         arr1_death_rates = None
 
-        # the following conditional affects the "death_chances" arrays
         if self.use_adjusted_death_rates:
             arr2345_death_rates = np.array([self.person_to_death_rate(row, ever_smoker=True, current_year=current_year,
                                            use_previous_smoking_state=use_previous_smoking_state) for row in in_arr2345]).astype(np.float64)
@@ -416,8 +415,6 @@ class Simulation(object):
                 print(np.min(arr1_death_rates))
 
         else:
-            # print("Not using death rates adjusted for smokers, formersmokers, nonsmokers.")
-
             life_table_year = min(self.start_year - 2, 2018)
             life_table_year = max(life_table_year, 2016)
 
@@ -501,29 +498,16 @@ class Simulation(object):
             ])
             
         if (in_arr6_noncohort is None) or (len(in_arr6_noncohort) == 0):
-            in_arr6 = np.concatenate([
-                arr1_dead_LYL,
-                arr2345_dead_LYL,
+            in_arr6_noncohort = np.concatenate([
+                arr1_dead_nonLYL,
+                arr2345_dead_nonLYL,
             ])
         else:
-            in_arr6 = np.concatenate([
-                in_arr6, 
-                arr1_dead_LYL,
-                arr2345_dead_LYL,
+            in_arr6_noncohort = np.concatenate([
+                in_arr6_noncohort, 
+                arr1_dead_nonLYL,
+                arr2345_dead_nonLYL,
             ])
-
-
-        if in_arr6 is None or (len(in_arr6) == 0):
-            in_arr6 = np.copy(in_arr1)[deaths_1 & arr1_inLylCohort]
-        else:
-            in_arr6 = np.concatenate(
-                [in_arr6, np.copy(in_arr1)[deaths_1 & arr1_inLylCohort]], axis=0)
-
-        if (in_arr6_noncohort is None) or (len(in_arr6_noncohort) == 0):
-            in_arr6_noncohort  = np.copy(in_arr1)[deaths_1 & np.logical_not(arr1_inLylCohort)]
-        else:
-            in_arr6_noncohort  = np.concatenate(
-                [in_arr6_noncohort , np.copy(in_arr1)[deaths_1 & np.logical_not(arr1_inLylCohort)]], axis=0)
 
         # take the dead people out of arr2345, arr1
         in_arr2345 = in_arr2345[np.logical_not(deaths_2345)]
@@ -750,12 +734,6 @@ class Simulation(object):
                 else:
                     # nonpov
                     self.num_lc_cases["nonpov"] += p[15]
-        # if (cy == 50):
-            # print("------------------------------")
-            # print("menthol ban", self.menthol_ban)
-            # print("cy", cy)
-            # print("num got cvd", num_gotCVD)
-            # print("num got lc", num_gotLC)
 
     def path_to_indicator_form(self, a):
         """
@@ -893,6 +871,9 @@ class Simulation(object):
         assert(len(output_numpy.shape) == 5)
 
         # probably a way to do this without loops but idk
+
+        # TODO: account for arr6_noncohort (not LYL cohort) in total deaths. 
+        # We aren't actually using those non-cohort death numbers though, so I won't bother accounting for that.
         for black in [0, 1]:
             for pov in [0, 1]:
                 for plus65 in [0, 1]:
@@ -1040,7 +1021,6 @@ class Simulation(object):
         assert(np.all(in_arr2345[:, 16] != -1))
         return in_arr2345
 
-    # TODO: think of a better name for this function
     def random_select_arg_multinomial(self, probs):
         """"
         Takes in probs which are like [0.1, 0.2, 0.3, 0.2, 0.2] -- sum to 1
@@ -1109,7 +1089,7 @@ class Simulation(object):
                 np.zeros(in_arr2345.shape[0]),  # p1
                 p4*exps[:, 0],  # p2
                 p4*exps[:, 1],  # p3
-                p4,           # p4
+                p4,             # p4
                 p4*exps[:, 2],  # p5
             ]).transpose()
         else:
@@ -1122,7 +1102,7 @@ class Simulation(object):
                 p4*exps[:, 0],  # p1
                 p4*exps[:, 1],  # p2
                 p4*exps[:, 2],  # p3
-                p4,           # p4
+                p4,             # p4
                 p4*exps[:, 3],  # p5
             ]).transpose()
         else:
@@ -1444,7 +1424,7 @@ class Simulation(object):
 
         return out_arr2345, out_arr1
 
-    def calibrate_initial_population(self, arr1, arr2345, arr6, beta_1_aug, beta_2345_aug):
+    def calibrate_initial_population(self, arr1, arr2345, arr6, beta_1_aug, beta_2345_aug, arr6_noncohort):
         """
         FURTHER CONSTRUCTING THE POPULATION
 
@@ -1482,6 +1462,7 @@ class Simulation(object):
             arr6,
             current_year=self.start_year - 2,
             use_previous_smoking_state=True,
+            in_arr6_noncohort=arr6_noncohort,
         )
 
         # age up the population
@@ -1505,6 +1486,7 @@ class Simulation(object):
             arr6,
             current_year=self.start_year - 1,
             use_previous_smoking_state=True,
+            in_arr6_noncohort=arr6_noncohort,
         )
 
         c2345, c1, arr6 = self.simulate_deaths(
@@ -1513,6 +1495,7 @@ class Simulation(object):
             arr6,
             current_year=self.start_year - 1,
             use_previous_smoking_state=False,
+            in_arr6_noncohort=arr6_noncohort,
         )
 
         # Simulate wave 3 smoking states for the wave 2 18-year-olds cohort
@@ -1752,114 +1735,28 @@ class Simulation(object):
 
         return
 
-    def simulation_loop_juan(self, beta_1_aug, beta_2345_aug, shortbanparams=None, longbanparams=None):
+    def determine_LYL(self, in_arr6):
         """
-        Same as simulation loop, but with some changes for
-        Juan (UNC Gillings PhD student)'s use case:
-        - no mortality
-        - no ban
-        - intended for use with populations with all the same starting state
+        Calculate the number of Life Years Lived (LYL)
+        for this run of the simulation, stratified by our demographic groups.
 
-        Next step is to loop over years, updating the pop each year
-        this is the main loop, simulating years 2016 - 2066
-        and writing out the stats
-        cy means current year
+        output_LYL is a 1D array with 5 elements
+        here are the indices as well as a description of each element:
+        0 - number of LYL in the total LYL cohort
+        1 - number of LYL in the black LYL cohort
+        2 - number of LYL in the nonblack LYL cohort
+        3 - number of LYL in the pov LYL cohort
+        4 - number of LYL in the nonpov LYL cohort
         """
-        for cy in range(self.end_year - self.start_year):
-            """
-            Main loop and crux of the program.
-            Steps:
-                1. add cohorts of 18-year-olds if needed
-                2. write data to appropriate structures to be saved for later analysis
-                3. kill people according to life tables
-                4. update people's smoking statuses
-                    a. make sure to take care of hassmoked flag
-                5. update people's ages
-                6. update initation age group
-            """
 
-            # start by writing out the appropriate data
-            self.write_data(cy, self.arr2345, self.arr1, self.arr6,
-                            self.output_list_to_df, self.output_numpy)
+        output_LYL = np.zeros(5)
+        output_LYL[0] = np.sum(in_arr6[:,11])
+        output_LYL[1] = np.sum((in_arr6[:,10] == 1) * in_arr6[:,11])
+        output_LYL[2] = np.sum((in_arr6[:,10] == 0) * in_arr6[:,11])
+        output_LYL[3] = np.sum((in_arr6[:,13] == 1) * in_arr6[:,11])
+        output_LYL[4] = np.sum((in_arr6[:,13] == 0) * in_arr6[:,11])
 
-            # next we get the transition probabilities for people
-
-            probs2345, probs1 = self.get_transition_probs_from_LR(
-                self.arr2345, self.arr1, beta_2345_aug, beta_1_aug)
-
-            # next we augment transition probabilities according to initiation and cessation parameters
-
-            probs2345, probs1 = self.adjust_transition_probs_according_to_initiation_cessation_params(
-                probs2345, probs1)
-
-            # update current state, old state
-
-            if probs2345 is not None:
-                new_states2345 = self.random_select_arg_multinomial(
-                    probs2345)[:, :]  # (s1, s2, s3, s4, s5)
-            else:
-                new_states2345 = None
-            if probs1 is not None:
-                new_states1 = self.random_select_arg_multinomial(
-                    probs1)[:, :]  # (s1, s2, s3, s4, s5)
-            else:
-                new_states1 = None
-
-            # leaving_1 is True for each row in new_states1 which has chosen to transition to 2, 3, 4, or 5
-            if new_states1 is not None:
-                leaving_1 = np.sum(new_states1[:, 1:], axis=1).astype(np.bool_)
-            else:
-                leaving_1 = None
-
-            # move current states to last years states and
-            # the new states into the current states
-
-            if self.arr2345 is not None:
-                self.arr2345[:, 2:5] = self.arr2345[:, 5:8]
-                # no more previous never smokers
-                self.arr2345[:, 1] = np.zeros(self.arr2345.shape[0])
-            # dont need to move arr1 stuff because arr1's previous state has not changed at all
-
-            if self.arr2345 is not None:
-                self.arr2345[:, 5:8] = new_states2345[:, 1:-1]
-            if self.arr1 is not None:
-                self.arr1[:, 5:8] = new_states1[:, 1:-1]
-
-            # move people from arr1 to arr2345 if they became a smoker
-
-            if self.arr1 is not None:
-                tmp_to_2345 = self.arr1[leaving_1]
-                self.arr1 = self.arr1[np.logical_not(leaving_1)]
-
-                if self.arr2345 is not None:
-                    self.arr2345 = np.concatenate(
-                        [self.arr2345, tmp_to_2345], axis=0)
-                else:
-                    self.arr2345 = tmp_to_2345
-
-            # increment age param
-
-            if self.arr2345 is not None:
-                self.arr2345[:, 11] += 1
-            if self.arr1 is not None:
-                self.arr1[:, 11] += 1
-
-            # update inital age for people in arr2345 (ever smokers)
-            # if ia=1 == 0 and and age >= 18 then ia = 2
-            # NOTE: never need to set ia=2 == 1 because everyone is 19 or older at this point
-
-            if self.arr2345 is not None:
-                self.arr2345[:, 9] = (
-                    self.arr2345[:, 8] == 0) * (self.arr2345[:, 12] >= 18)
-
-            # endfor
-
-        # write data one last time for the final year
-
-        self.output_list_to_df, self.output_numpy = self.write_data(
-            self.end_year - self.start_year, self.arr2345, self.arr1, self.arr6, self.output_list_to_df, self.output_numpy)
-
-        return
+        return output_LYL
 
     def simulate(self):
         """
@@ -1890,12 +1787,7 @@ class Simulation(object):
         beta_2345_aug, beta_1_aug = self.get_augmented_betas()
 
         self.arr1, self.arr2345, self.arr6 = self.calibrate_initial_population(
-            self.arr1, self.arr2345, self.arr6, beta_1_aug, beta_2345_aug)
-
-        # get snapshot of population
-        # np.save("../../misc/arr2345_calibrated", arr2345)
-        # np.save("../../misc/arr1_calibrated", arr1)
-        # quit()
+            self.arr1, self.arr2345, self.arr6, beta_1_aug, beta_2345_aug, arr6_noncohort=self.arr6_noncohort)
 
         # do the main simulation loop over all years!
         self.simulation_loop(beta_1_aug=beta_1_aug,

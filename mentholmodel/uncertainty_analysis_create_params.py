@@ -296,7 +296,7 @@ def main(args):
         # create initial population
         s.format_population()
         beta_2345_aug, beta_1_aug = s.get_augmented_betas()
-        s.arr1, s.arr2345, s.arr6 = s.calibrate_initial_population(s.arr1, s.arr2345, s.arr6, beta_1_aug, beta_2345_aug)
+        s.arr1, s.arr2345, s.arr6, s.arr6_noncohort = s.calibrate_initial_population(s.arr1, s.arr2345, s.arr6, beta_1_aug, beta_2345_aug, s.arr6_noncohort)
 
         np.save(os.path.join(init_pop_dir, f'pop_{j_str}_arr1.npy'), s.arr1)
         np.save(os.path.join(init_pop_dir, f'pop_{j_str}_arr6.npy'), s.arr6)

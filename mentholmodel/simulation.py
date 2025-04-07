@@ -1649,7 +1649,7 @@ class Simulation(object):
             # continue by randomly determining if people
             # will die this year
 
-            self.arr2345, self.arr1, self.arr6 = self.simulate_deaths(
+            self.arr2345, self.arr1, self.arr6, self.arr6_noncohort= self.simulate_deaths(
                 self.arr2345, self.arr1, self.arr6, current_year=cy + self.start_year, in_arr6_noncohort=self.arr6_noncohort)
 
             # next we get the transition probabilities for people
@@ -1733,6 +1733,10 @@ class Simulation(object):
         self.output_list_to_df, self.output_numpy = self.write_data(
             self.end_year - self.start_year, self.arr2345, self.arr1, self.arr6, self.output_list_to_df, self.output_numpy)
 
+        # write out LYL
+
+        self.output_LYL = self.determine_LYL(self.arr6)
+
         return
 
     def determine_LYL(self, in_arr6):
@@ -1758,7 +1762,7 @@ class Simulation(object):
         self.output_LYL[3] = np.sum((in_arr6[:,13] == 1) * in_arr6[:,11])
         self.output_LYL[4] = np.sum((in_arr6[:,13] == 0) * in_arr6[:,11])
 
-        return output_LYL
+        return self.output_LYL
 
     def simulate(self):
         """
@@ -1827,7 +1831,6 @@ class Simulation(object):
             np.save(fname_total, self.output_65yos)
         
         if self.save_LYL_np_fname is not None:
-            self.output_LYL = self.determine_LYL(self.arr6)
             fname = os.path.join(self.save_dir, 'LYL/', 'LYL_' + os.path.basename(
                 self.save_LYL_np_fname) + '_' + self.now_str + '.npy')
             np.save(fname, self.output_LYL)

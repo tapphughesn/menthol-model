@@ -34,20 +34,20 @@ if [[ $output =~ ([0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{6}
     sleep 1
     # python -m uncertainty_analysis_do_runs $1 $1 $1 1 "$datetime" --second_half $FLAG 
 
-    # python -m uncertainty_analysis_do_runs $1 $1 $1 2 "$datetime" $FLAG  &
-    # sleep 1
+    python -m uncertainty_analysis_do_runs $1 $1 $1 2 "$datetime" $FLAG  &
+    sleep 1
     # python -m uncertainty_analysis_do_runs $1 $1 $1 2 "$datetime" --second_half $FLAG 
 
-    # python -m uncertainty_analysis_do_runs $1 $1 $1 3 "$datetime" $FLAG  &
-    # sleep 1
+    python -m uncertainty_analysis_do_runs $1 $1 $1 3 "$datetime" $FLAG  &
+    sleep 1
     # python -m uncertainty_analysis_do_runs $1 $1 $1 3 "$datetime" --second_half $FLAG 
 
-    # python -m uncertainty_analysis_do_runs $1 $1 $1 4 "$datetime" $FLAG  &
-    # sleep 1
+    python -m uncertainty_analysis_do_runs $1 $1 $1 4 "$datetime" $FLAG  &
+    sleep 1
     # python -m uncertainty_analysis_do_runs $1 $1 $1 4 "$datetime" --second_half $FLAG 
 
-    # python -m uncertainty_analysis_do_runs $1 $1 $1 5 "$datetime" $FLAG  &
-    # sleep 1
+    python -m uncertainty_analysis_do_runs $1 $1 $1 5 "$datetime" $FLAG  &
+    sleep 1
     # python -m uncertainty_analysis_do_runs $1 $1 $1 5 "$datetime" --second_half $FLAG 
 
     wait

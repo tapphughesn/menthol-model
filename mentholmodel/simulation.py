@@ -480,6 +480,18 @@ class Simulation(object):
             (current_year - arr2345_ages) >= LYL_cohort_min_birth_year,
         )
 
+        dead_arr = np.concatenate([
+            np.copy(in_arr2345)[deaths_2345],
+            np.copy(in_arr1)[deaths_1],
+            ])
+        dead_count = np.sum(dead_arr[:15])
+        total = np.sum(in_arr1[:15]) + np.sum(in_arr2345[:15])
+
+        print("dead_count " + str(dead_count))
+        print("total " + str(total))
+        print("% " + str(dead_count / total))
+
+
         arr2345_dead_LYL = np.copy(in_arr2345)[deaths_2345 & arr2345_inLylCohort]
         arr2345_dead_nonLYL  = np.copy(in_arr2345)[deaths_2345 & np.logical_not(arr2345_inLylCohort)]
             
@@ -1756,11 +1768,11 @@ class Simulation(object):
         4 - number of LYL in the nonpov LYL cohort
         """
 
-        self.output_LYL[0] = np.sum(in_arr6[:,11])
-        self.output_LYL[1] = np.sum((in_arr6[:,10] == 1) * in_arr6[:,11])
-        self.output_LYL[2] = np.sum((in_arr6[:,10] == 0) * in_arr6[:,11])
-        self.output_LYL[3] = np.sum((in_arr6[:,13] == 1) * in_arr6[:,11])
-        self.output_LYL[4] = np.sum((in_arr6[:,13] == 0) * in_arr6[:,11])
+        self.output_LYL[0] = np.sum(in_arr6[:,11] * in_arr6[:,15])
+        self.output_LYL[1] = np.sum((in_arr6[:,10] == 1) * in_arr6[:,11] * in_arr6[:,15])
+        self.output_LYL[2] = np.sum((in_arr6[:,10] == 0) * in_arr6[:,11] * in_arr6[:,15])
+        self.output_LYL[3] = np.sum((in_arr6[:,13] == 1) * in_arr6[:,11] * in_arr6[:,15])
+        self.output_LYL[4] = np.sum((in_arr6[:,13] == 0) * in_arr6[:,11] * in_arr6[:,15])
 
         return self.output_LYL
 

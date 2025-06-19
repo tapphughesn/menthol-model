@@ -448,6 +448,17 @@ class Simulation(object):
             assert(np.max(arr1_death_rates) <= 1)
             assert(np.min(arr1_death_rates) >= 0)
 
+        print("-----------------------------")
+        print("menthol ban: " + str(self.menthol_ban))
+        print("current year: " + str(current_year))
+        print("using adjusted death rates: " + str(self.use_adjusted_death_rates))
+
+        print("average death rate for all people: " + str(
+            (np.sum(arr2345_death_rates) + np.sum(arr1_death_rates)) / (len(in_arr2345) + len(in_arr1))
+            ))
+        
+
+
         # determine deaths in arr2345
         chance_2345 = np.random.rand(len(in_arr2345)).astype(np.float64)
         deaths_2345 = arr2345_death_rates > chance_2345
@@ -456,7 +467,7 @@ class Simulation(object):
         chance_1 = np.random.rand(len(in_arr1)).astype(np.float64)
         deaths_1 = arr1_death_rates > chance_1
 
-        # now it is time to put dead people in arr6
+        # now it is time to put dead people in arr6 and arr6_noncohort
 
         """
         The Life Years Lived (LYL) cohort minimum age is 18 in 2035, and max age is 74 in 2035
@@ -480,16 +491,19 @@ class Simulation(object):
             (current_year - arr2345_ages) >= LYL_cohort_min_birth_year,
         )
 
-        dead_arr = np.concatenate([
-            np.copy(in_arr2345)[deaths_2345],
-            np.copy(in_arr1)[deaths_1],
-            ])
-        dead_count = np.sum(dead_arr[:15])
-        total = np.sum(in_arr1[:15]) + np.sum(in_arr2345[:15])
-
-        print("dead_count " + str(dead_count))
-        print("total " + str(total))
-        print("% " + str(dead_count / total))
+        # debug: find out how many people are dying
+        # print("----------------------------")
+        # print("current_year " + str(current_year))
+        # dead_arr = np.concatenate([
+        #     np.copy(in_arr2345)[deaths_2345],
+        #     np.copy(in_arr1)[deaths_1],
+        #     ])
+        # dead_count = np.sum(dead_arr[:15])
+        # total = np.sum(in_arr1[:15]) + np.sum(in_arr2345[:15])
+        # print("dead_count " + str(dead_count))
+        # print("alive_count " + str(total - dead_count))
+        # print("total " + str(total))
+        # print("% died" + str(dead_count / total))
 
 
         arr2345_dead_LYL = np.copy(in_arr2345)[deaths_2345 & arr2345_inLylCohort]
@@ -1601,6 +1615,7 @@ class Simulation(object):
         self.arr1 = np.asarray([row for row in pop_arr
                                 if (row[4] == 1 and row[3] == 1)])
         self.arr6 = None
+        self.arr6_noncohort = None
 
         # These arrays need to be in "indicator form"
         # So that they can be mulitplied with the betas
@@ -1632,6 +1647,14 @@ class Simulation(object):
                 5. update people's ages
                 6. update initation age group
             """
+
+            # if cy in (0, 50 , 100):
+            #     print(f"current year {self.start_year + cy}")
+            #     print(f"menthol ban: {self.menthol_ban}")
+            #     print(f"number of people: {len(self.arr2345) + len(self.arr1)}")
+            #     print(f"relative population of arr1: {len(self.arr1) / (len(self.arr2345) + len(self.arr1))}")
+            #     print(f"number dead: {len(self.arr6) + len(self.arr6_noncohort)}")
+
 
             # insert new cohort(s) of 18yearolds
             # only do this until self.last_year_cohort_added, which by default is np.inf

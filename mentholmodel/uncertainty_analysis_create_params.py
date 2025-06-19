@@ -242,7 +242,7 @@ def main(args):
     """
     # using machine epsilon instead of zeros to avoid divide by zero errors
     longban_options = np.array([
-        [0.2, 0.5, 0.2, 0.1],
+        [0.6, 0.1, 0.2, 0.1],
         [0.4, 0.5, np.finfo(float).eps, 0.1],
         [np.finfo(float).eps, 0.5, 0.4, 0.1],
         [np.finfo(float).eps, 0.75, 0.20, 0.05],
@@ -299,8 +299,9 @@ def main(args):
         s.arr1, s.arr2345, s.arr6, s.arr6_noncohort = s.calibrate_initial_population(s.arr1, s.arr2345, s.arr6, beta_1_aug, beta_2345_aug, s.arr6_noncohort)
 
         np.save(os.path.join(init_pop_dir, f'pop_{j_str}_arr1.npy'), s.arr1)
-        np.save(os.path.join(init_pop_dir, f'pop_{j_str}_arr6.npy'), s.arr6)
         np.save(os.path.join(init_pop_dir, f'pop_{j_str}_arr2345.npy'), s.arr2345)
+        np.save(os.path.join(init_pop_dir, f'pop_{j_str}_arr6.npy'), s.arr6)
+        np.save(os.path.join(init_pop_dir, f'pop_{j_str}_arr6_noncohort.npy'), s.arr6_noncohort)
     #endfor
 
 

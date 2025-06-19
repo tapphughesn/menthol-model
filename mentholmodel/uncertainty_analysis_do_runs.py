@@ -26,6 +26,7 @@ from datetime import datetime
 import math
 from glob import glob
 import debugpy
+from time import sleep
 
 def int_to_str(i: int, max: int) -> str:
     """
@@ -162,8 +163,9 @@ def main(args):
             j_str = int_to_str(j, args.num_initpops)
 
             arr1 = np.load(os.path.join(init_pop_dir, f'pop_{j_str}_arr1.npy'))
-            arr6 = np.load(os.path.join(init_pop_dir, f'pop_{j_str}_arr6.npy'))
             arr2345 = np.load(os.path.join(init_pop_dir, f'pop_{j_str}_arr2345.npy'))
+            arr6 = np.load(os.path.join(init_pop_dir, f'pop_{j_str}_arr6.npy'))
+            arr6_noncohort = np.load(os.path.join(init_pop_dir, f'pop_{j_str}_arr6_noncohort.npy'))
 
             for k in range(args.num_banparams):
                 # do second half 
@@ -175,8 +177,11 @@ def main(args):
                 k_str = int_to_str(k, args.num_banparams)
 
                 savename = os.path.join(output_dir, f'mort_{i_str}_pop_{j_str}_banparams_{k_str}_output.npy')
-                # if os.path.isfile(savename):
-                #     continue
+
+                sleep(np.random.rand() / 1000) # avoids race conditions?
+                if os.path.isfile(savename):
+                    continue
+
                 disease_savename_cvd = os.path.join(disease_output_dir, f'mort_{i_str}_pop_{j_str}_banparams_{k_str}_disease_output_cvd.npy' )
                 disease_savename_lc = os.path.join(disease_output_dir, f'mort_{i_str}_pop_{j_str}_banparams_{k_str}_disease_output_lc.npy' )
                 disease_savename_total = os.path.join(disease_output_dir, f'mort_{i_str}_pop_{j_str}_banparams_{k_str}_disease_output_total.npy' )
@@ -199,7 +204,7 @@ def main(args):
                         save_disease_np_fname='disease_incidence_output',
                         save_LYL_np_fname='live_years_output',
                         use_adjusted_death_rates=not args.simple_death_rates,
-                        end_year = 2166,
+                        end_year = 2126,
                         menthol_ban=False,
                         menthol_ban_year = 2024,
                         target_initial_smoking_proportion=NHIS_smoking_percentage,
@@ -210,7 +215,7 @@ def main(args):
                         )
                     
                     beta_2345_aug, beta_1_aug = t.get_augmented_betas()
-                    t.arr1, t.arr2345, t.arr6 = np.copy(arr1), np.copy(arr2345), np.copy(arr6)
+                    t.arr1, t.arr2345, t.arr6, t.arr6_noncohort = np.copy(arr1), np.copy(arr2345), np.copy(arr6), np.copy(arr6_noncohort)
 
                     t.simulation_loop(beta_1_aug, beta_2345_aug)
 
@@ -246,7 +251,7 @@ def main(args):
                         save_disease_np_fname='disease_incidence_output',
                         save_LYL_np_fname='live_years_output',
                         use_adjusted_death_rates=not args.simple_death_rates,
-                        end_year = 2166,
+                        end_year = 2126,
                         menthol_ban=True,
                         menthol_ban_year = 2024,
                         target_initial_smoking_proportion=NHIS_smoking_percentage,
@@ -257,7 +262,7 @@ def main(args):
                         )
                     
                     beta_2345_aug, beta_1_aug = t.get_augmented_betas()
-                    t.arr1, t.arr2345, t.arr6 = np.copy(arr1), np.copy(arr2345), np.copy(arr6)
+                    t.arr1, t.arr2345, t.arr6, t.arr6_noncohort = np.copy(arr1), np.copy(arr2345), np.copy(arr6), np.copy(arr6_noncohort)
 
                     t.simulation_loop(beta_1_aug, beta_2345_aug, shortbanparams=shortbanparams, longbanparams=longbanparams)
 

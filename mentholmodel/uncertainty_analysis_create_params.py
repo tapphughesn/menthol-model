@@ -110,8 +110,16 @@ def main(args):
     # According to a published review
     # Here we are also getting 95% CI and stddevs
 
+
     csvns_arr = pd.read_excel(os.path.join("..", "..", "smoking_mortality", "csvns_bounds.xlsx")).to_numpy()[:,1:]
-    fsvcs_arr = pd.read_excel(os.path.join("..", "..", "smoking_mortality", "fsvcs_bounds.xlsx")).to_numpy()[:,1:]
+
+    # Changing former smoker vs current smoker RR to never be > 1
+    # fsvcs_arr = pd.read_excel(os.path.join("..", "..", "smoking_mortality", "fsvcs_bounds.xlsx")).to_numpy()[:,1:]
+    fsvcs_arr = pd.read_excel(os.path.join("..", "..", "smoking_mortality", "fsvcs_bounds_adjusted.xlsx")).to_numpy()[:,1:]
+
+    # using all1 (RRs all equal to 1)
+    # csvns_arr = pd.read_excel(os.path.join("..", "..", "smoking_mortality", "csvns_bounds_all1.xlsx")).to_numpy()[:,1:]
+    # fsvcs_arr = pd.read_excel(os.path.join("..", "..", "smoking_mortality", "fsvcs_bounds_all1.xlsx")).to_numpy()[:,1:]
 
     # create unit truncated normal to be used for confidence interval sampling
     unit_truncnorm = truncnorm(-1.96, 1.96) # 1.96 is z score for 95% confidence interval

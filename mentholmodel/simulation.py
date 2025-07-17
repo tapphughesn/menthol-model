@@ -238,7 +238,7 @@ class Simulation(object):
 
         adr == ps*sdr + pf*fdr + pn*ndr
         RRfc == fdr / sdr
-        RRsn == sdr/ndr
+        RRsn == sdr / ndr
 
         The solutions (due to mathematica) are:
         sdr == (adr * RRsn)/(pn + ps * RRsn + pf * RRfc * RRsn)
@@ -448,14 +448,14 @@ class Simulation(object):
             assert(np.max(arr1_death_rates) <= 1)
             assert(np.min(arr1_death_rates) >= 0)
 
-        print("-----------------------------")
-        print("menthol ban: " + str(self.menthol_ban))
-        print("current year: " + str(current_year))
-        print("using adjusted death rates: " + str(self.use_adjusted_death_rates))
+        # print("-----------------------------")
+        # print("menthol ban: " + str(self.menthol_ban))
+        # print("current year: " + str(current_year))
+        # print("using adjusted death rates: " + str(self.use_adjusted_death_rates))
 
-        print("average death rate for all people: " + str(
-            (np.sum(arr2345_death_rates) + np.sum(arr1_death_rates)) / (len(in_arr2345) + len(in_arr1))
-            ))
+        # print("average death rate for all people: " + str(
+        #     (np.sum(arr2345_death_rates) + np.sum(arr1_death_rates)) / (len(in_arr2345) + len(in_arr1))
+        #     ))
         
 
 
@@ -826,9 +826,9 @@ class Simulation(object):
                 0,    # set
                 row[6] / row[7],    # weight
                 18,    # age
-                0 + 17 * (int(row[4]) == 1) + 18 * \
-                (int(row[4]) == 2),    # start_age
-            ]), (int(row[7]), 1))
+                0 + 17 * (round(row[4]) == 1) + 18 * \
+                (round(row[4]) == 2),    # start_age
+            ]), (round(row[7]), 1))
             for row in c], axis=0)
 
         path_form_arr = path_form_arr.astype(np.float64)
@@ -1770,11 +1770,11 @@ class Simulation(object):
 
         # write out LYL
 
-        self.output_LYL = self.determine_LYL(self.arr6)
+        self.output_LYL = self.determine_LYL(self.arr6, self.arr1, self.arr2345)
 
         return
 
-    def determine_LYL(self, in_arr6):
+    def determine_LYL(self, in_arr6, in_arr1, in_arr2345):
         """
         Calculate the number of Life Years Lived (LYL)
         for this run of the simulation, stratified by our demographic groups.
@@ -1790,6 +1790,41 @@ class Simulation(object):
         3 - number of LYL in the pov LYL cohort
         4 - number of LYL in the nonpov LYL cohort
         """
+
+
+        # """
+        # Determine if there are any alive people in the LYL cohort
+        # """
+
+        # """
+        # The Life Years Lived (LYL) cohort minimum age is 18 in 2035, and max age is 74 in 2035
+        # But, we write out data at the start of the year, then calculate deaths, then age up people.
+        # So, we are actually looking at people who are 18-74 in 2034, since that data will be written for 2035
+        # So, someone's birth year has to be 1960-2016 (inclusive).
+        # Birth year can be calculated as current year - age
+        # """
+        # LYL_cohort_max_birth_year = 2016
+        # LYL_cohort_min_birth_year = 1960
+
+        # # determine who will be in the life years lived (LYL) cohort
+        # arr1_ages = in_arr1[:, 11].astype(np.int32)
+        # arr1_inLylCohort = np.logical_and(
+        #     (self.end_year - arr1_ages) <= LYL_cohort_max_birth_year,
+        #     (self.end_year - arr1_ages) >= LYL_cohort_min_birth_year,
+        # )
+        # arr2345_ages = in_arr2345[:, 11].astype(np.int32)
+        # arr2345_inLylCohort = np.logical_and(
+        #     (self.end_year - arr2345_ages) <= LYL_cohort_max_birth_year,
+        #     (self.end_year - arr2345_ages) >= LYL_cohort_min_birth_year,
+        # )
+
+        # arr2345_LYL = np.copy(in_arr2345)[arr2345_inLylCohort]
+        # arr1_LYL = np.copy(in_arr1)[arr1_inLylCohort]
+
+        # print("Alive people in LYL cohort?")
+        # print(f"Number in arr1: {len(arr1_LYL)}")
+        # print(f"Number in arr2345: {len(arr2345_LYL)}")
+        
 
         self.output_LYL[0] = np.sum(in_arr6[:,11] * in_arr6[:,15])
         self.output_LYL[1] = np.sum((in_arr6[:,10] == 1) * in_arr6[:,11] * in_arr6[:,15])

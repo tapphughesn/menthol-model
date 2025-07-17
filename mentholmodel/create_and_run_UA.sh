@@ -16,7 +16,7 @@ fi
 # Execute the first command and capture its output
 echo ""
 echo "Creating UA params"
-output=$(python3 -m uncertainty_analysis_create_params $1 $1 $1)
+output=$(python -m uncertainty_analysis_create_params $1 $1 $1)
 
 echo $output
 
@@ -25,32 +25,35 @@ if [[ $output =~ ([0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{6}
     datetime="${BASH_REMATCH[1]}"
     echo ""
 
-    # Do the runs
-    python3 -m uncertainty_analysis_do_runs $1 $1 $1 0 "$datetime" $FLAG #&
-    sleep 1
-    # python3 -m uncertainty_analysis_do_runs $1 $1 $1 0 "$datetime" --second_half $FLAG &
+    # Do runs
+    python -m uncertainty_analysis_do_runs $1 $1 $1 0 "$datetime" $FLAG &
+    sleep 1 
+    # python -m uncertainty_analysis_do_runs $1 $1 $1 0 "$datetime" --second_half $FLAG &
 
-    python3 -m uncertainty_analysis_do_runs $1 $1 $1 1 "$datetime" $FLAG  #&
+    python -m uncertainty_analysis_do_runs $1 $1 $1 1 "$datetime" $FLAG 
     sleep 1
-    # python3 -m uncertainty_analysis_do_runs $1 $1 $1 1 "$datetime" --second_half $FLAG &
+    # python -m uncertainty_analysis_do_runs $1 $1 $1 1 "$datetime" --second_half $FLAG &
 
+    wait
+    echo ""
+    echo "Timestamp: $datetime"
     exit
 
-    python3 -m uncertainty_analysis_do_runs $1 $1 $1 2 "$datetime" $FLAG  &
+    python -m uncertainty_analysis_do_runs $1 $1 $1 2 "$datetime" $FLAG  &
     sleep 1
-    python3 -m uncertainty_analysis_do_runs $1 $1 $1 2 "$datetime" --second_half $FLAG &
+    python -m uncertainty_analysis_do_runs $1 $1 $1 2 "$datetime" --second_half $FLAG &
 
-    python3 -m uncertainty_analysis_do_runs $1 $1 $1 3 "$datetime" $FLAG  &
+    python -m uncertainty_analysis_do_runs $1 $1 $1 3 "$datetime" $FLAG  &
     sleep 1
-    python3 -m uncertainty_analysis_do_runs $1 $1 $1 3 "$datetime" --second_half $FLAG &
+    python -m uncertainty_analysis_do_runs $1 $1 $1 3 "$datetime" --second_half $FLAG &
 
-    python3 -m uncertainty_analysis_do_runs $1 $1 $1 4 "$datetime" $FLAG  &
+    python -m uncertainty_analysis_do_runs $1 $1 $1 4 "$datetime" $FLAG  &
     sleep 1
-    python3 -m uncertainty_analysis_do_runs $1 $1 $1 4 "$datetime" --second_half $FLAG &
+    python -m uncertainty_analysis_do_runs $1 $1 $1 4 "$datetime" --second_half $FLAG &
 
-    python3 -m uncertainty_analysis_do_runs $1 $1 $1 5 "$datetime" $FLAG  &
+    python -m uncertainty_analysis_do_runs $1 $1 $1 5 "$datetime" $FLAG  &
     sleep 1
-    python3 -m uncertainty_analysis_do_runs $1 $1 $1 5 "$datetime" --second_half $FLAG &
+    python -m uncertainty_analysis_do_runs $1 $1 $1 5 "$datetime" --second_half $FLAG &
 
     wait
     echo ""

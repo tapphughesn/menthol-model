@@ -187,6 +187,7 @@ def main(args):
                 disease_savename_total = os.path.join(disease_output_dir, f'mort_{i_str}_pop_{j_str}_banparams_{k_str}_disease_output_total.npy' )
 
                 LYL_savename = os.path.join(LYL_output_dir, f'mort_{i_str}_pop_{j_str}_banparams_{k_str}_LYL_output.npy' )
+                LYL_savename_excel = os.path.join(LYL_output_dir, f'mort_{i_str}_pop_{j_str}_banparams_{k_str}_LYL_output.xlsx' )
 
                 if args.ban_option == 0:
                     # status quo scenario, do simulations without menthol ban
@@ -220,12 +221,15 @@ def main(args):
                     t.simulation_loop(beta_1_aug, beta_2345_aug)
 
                     np.save(savename, t.output_numpy)
-                    
+
                     np.save(disease_savename_cvd, t.output_cvd)
                     np.save(disease_savename_lc, t.output_lc)
                     np.save(disease_savename_total, t.output_65yos)
 
                     np.save(LYL_savename, t.output_LYL)
+                    # Save to Excel
+                    df = pd.DataFrame(t.arr6)
+                    df.to_excel(LYL_savename_excel, index=False, header=False)
 
                     progress = i/args.num_mortparams + j/args.num_initpops/args.num_mortparams + k/args.num_banparams/args.num_initpops/args.num_mortparams
                     seconds_since_start = int((datetime.now() - start).total_seconds())
@@ -273,6 +277,9 @@ def main(args):
                     np.save(disease_savename_total, t.output_65yos)
 
                     np.save(LYL_savename, t.output_LYL)
+                    # Save to Excel
+                    df = pd.DataFrame(t.arr6)
+                    df.to_excel(LYL_savename_excel, index=False, header=False)
                     
                     progress = i/args.num_mortparams + j/args.num_initpops/args.num_mortparams + k/args.num_banparams/args.num_initpops/args.num_mortparams
                     seconds_since_start = int((datetime.now() - start).total_seconds())

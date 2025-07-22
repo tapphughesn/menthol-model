@@ -278,7 +278,7 @@ def main(args):
 
     # INITPOPS
 
-    # Now get the initial populations. (25 total)
+    # Now get the initial populations. 
     for j in range(args.num_initpops):
         j_str = int_to_str(j, args.num_initpops)
         

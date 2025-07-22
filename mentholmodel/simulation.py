@@ -1172,38 +1172,13 @@ class Simulation(object):
             probs_25minus = None
             probs_25plus = None
 
-            # these numbers add to 1
-            # these numbers describe how the probability of being a menthol smoker
-            # is distributed among the 5 options.
-            option1 = np.array([0., 0.23, 0.20, 0.44, 0.13])
-            option2 = np.array([0., 0.27, 0.19, 0.42, 0.12])
-            option3 = np.array([0., 0.18, 0.22, 0.46, 0.14])
-            option4 = np.array([0., 0.25, 0.15, 0.46, 0.14])
-            options = [option1, option2, option3, option4]
-
-            # you can override the built-in options by supplying short-term ban params explicitly
-            # which is what I am doing in uncertainty analysis
             if shortbanparams is None:
-                if self.short_term_option == 1:
-                    # print("short term option", self.short_term_option)
-                    probs_25minus = options[1]
-                    probs_25plus = options[0]
-                elif self.short_term_option == 2:
-                    # print("short term option", self.short_term_option)
-                    probs_25minus = options[1]
-                    probs_25plus = options[1]
-                elif self.short_term_option == 3:
-                    # print("short term option", self.short_term_option)
-                    probs_25minus = options[0]
-                    probs_25plus = options[2]
-                elif self.short_term_option == 4:
-                    # print("short term option", self.short_term_option)
-                    probs_25minus = options[3]
-                    probs_25plus = options[3]
-            else:
-                assert shortbanparams.shape == (2, 5)
-                probs_25minus = shortbanparams[0]
-                probs_25plus = shortbanparams[1]
+                raise Exception("""You need to supply shortban params for menthol ban scenario. 
+                                This is what I am doing in the uncertainty analysis.""")
+
+            assert shortbanparams.shape == (2, 5)
+            probs_25minus = shortbanparams[0]
+            probs_25plus = shortbanparams[1]
 
             try:
                 assert(abs(sum(probs_25minus) - 1.) < 1e-5)
@@ -1648,14 +1623,6 @@ class Simulation(object):
                 6. update initation age group
             """
 
-            # if cy in (0, 50 , 100):
-            #     print(f"current year {self.start_year + cy}")
-            #     print(f"menthol ban: {self.menthol_ban}")
-            #     print(f"number of people: {len(self.arr2345) + len(self.arr1)}")
-            #     print(f"relative population of arr1: {len(self.arr1) / (len(self.arr2345) + len(self.arr1))}")
-            #     print(f"number dead: {len(self.arr6) + len(self.arr6_noncohort)}")
-
-
             # insert new cohort(s) of 18yearolds
             # only do this until self.last_year_cohort_added, which by default is np.inf
             if self.start_year + cy <= self.last_year_cohort_added:
@@ -1790,41 +1757,6 @@ class Simulation(object):
         3 - number of LYL in the pov LYL cohort
         4 - number of LYL in the nonpov LYL cohort
         """
-
-
-        # """
-        # Determine if there are any alive people in the LYL cohort
-        # """
-
-        # """
-        # The Life Years Lived (LYL) cohort minimum age is 18 in 2035, and max age is 74 in 2035
-        # But, we write out data at the start of the year, then calculate deaths, then age up people.
-        # So, we are actually looking at people who are 18-74 in 2034, since that data will be written for 2035
-        # So, someone's birth year has to be 1960-2016 (inclusive).
-        # Birth year can be calculated as current year - age
-        # """
-        # LYL_cohort_max_birth_year = 2016
-        # LYL_cohort_min_birth_year = 1960
-
-        # # determine who will be in the life years lived (LYL) cohort
-        # arr1_ages = in_arr1[:, 11].astype(np.int32)
-        # arr1_inLylCohort = np.logical_and(
-        #     (self.end_year - arr1_ages) <= LYL_cohort_max_birth_year,
-        #     (self.end_year - arr1_ages) >= LYL_cohort_min_birth_year,
-        # )
-        # arr2345_ages = in_arr2345[:, 11].astype(np.int32)
-        # arr2345_inLylCohort = np.logical_and(
-        #     (self.end_year - arr2345_ages) <= LYL_cohort_max_birth_year,
-        #     (self.end_year - arr2345_ages) >= LYL_cohort_min_birth_year,
-        # )
-
-        # arr2345_LYL = np.copy(in_arr2345)[arr2345_inLylCohort]
-        # arr1_LYL = np.copy(in_arr1)[arr1_inLylCohort]
-
-        # print("Alive people in LYL cohort?")
-        # print(f"Number in arr1: {len(arr1_LYL)}")
-        # print(f"Number in arr2345: {len(arr2345_LYL)}")
-        
 
         self.output_LYL[0] = np.sum(in_arr6[:,11] * in_arr6[:,15])
         self.output_LYL[1] = np.sum((in_arr6[:,10] == 1) * in_arr6[:,11] * in_arr6[:,15])

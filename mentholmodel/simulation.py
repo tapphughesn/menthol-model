@@ -448,17 +448,6 @@ class Simulation(object):
             assert(np.max(arr1_death_rates) <= 1)
             assert(np.min(arr1_death_rates) >= 0)
 
-        # print("-----------------------------")
-        # print("menthol ban: " + str(self.menthol_ban))
-        # print("current year: " + str(current_year))
-        # print("using adjusted death rates: " + str(self.use_adjusted_death_rates))
-
-        # print("average death rate for all people: " + str(
-        #     (np.sum(arr2345_death_rates) + np.sum(arr1_death_rates)) / (len(in_arr2345) + len(in_arr1))
-        #     ))
-        
-
-
         # determine deaths in arr2345
         chance_2345 = np.random.rand(len(in_arr2345)).astype(np.float64)
         deaths_2345 = arr2345_death_rates > chance_2345
@@ -490,21 +479,6 @@ class Simulation(object):
             (current_year - arr2345_ages) <= LYL_cohort_max_birth_year,
             (current_year - arr2345_ages) >= LYL_cohort_min_birth_year,
         )
-
-        # debug: find out how many people are dying
-        # print("----------------------------")
-        # print("current_year " + str(current_year))
-        # dead_arr = np.concatenate([
-        #     np.copy(in_arr2345)[deaths_2345],
-        #     np.copy(in_arr1)[deaths_1],
-        #     ])
-        # dead_count = np.sum(dead_arr[:15])
-        # total = np.sum(in_arr1[:15]) + np.sum(in_arr2345[:15])
-        # print("dead_count " + str(dead_count))
-        # print("alive_count " + str(total - dead_count))
-        # print("total " + str(total))
-        # print("% died" + str(dead_count / total))
-
 
         arr2345_dead_LYL = np.copy(in_arr2345)[deaths_2345 & arr2345_inLylCohort]
         arr2345_dead_nonLYL  = np.copy(in_arr2345)[deaths_2345 & np.logical_not(arr2345_inLylCohort)]

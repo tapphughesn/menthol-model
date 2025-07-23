@@ -252,7 +252,7 @@ def main(args):
     longban_options = np.array([
         [0.6, 0.1, 0.2, 0.1],
         [0.4, 0.5, np.finfo(float).eps, 0.1],
-        [np.finfo(float).eps, 0.5, 0.4, 0.1],
+        # Remove ban option 3: [np.finfo(float).eps, 0.5, 0.4, 0.1],
         [np.finfo(float).eps, 0.75, 0.20, 0.05],
         [0.1, 0.5, 0.1, 0.3],
     ])

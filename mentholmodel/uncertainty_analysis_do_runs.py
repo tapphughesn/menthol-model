@@ -278,8 +278,8 @@ def main(args):
 
                     np.save(LYL_savename, t.output_LYL)
                     # Save to Excel
-                    df = pd.DataFrame(t.arr6)
-                    df.to_excel(LYL_savename_excel, index=False, header=False)
+                    # df = pd.DataFrame(t.arr6)
+                    # df.to_excel(LYL_savename_excel, index=False, header=False)
                     
                     progress = i/args.num_mortparams + j/args.num_initpops/args.num_mortparams + k/args.num_banparams/args.num_initpops/args.num_mortparams
                     seconds_since_start = int((datetime.now() - start).total_seconds())

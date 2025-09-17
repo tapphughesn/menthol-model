@@ -1738,6 +1738,26 @@ class Simulation(object):
         self.output_LYL[3] = np.sum((in_arr6[:,13] == 1) * in_arr6[:,11] * in_arr6[:,15])
         self.output_LYL[4] = np.sum((in_arr6[:,13] == 0) * in_arr6[:,11] * in_arr6[:,15])
 
+        print("")
+        print("")
+        print("Total number of people in the LYL cohort:")
+        print(np.sum(in_arr6[:,15]))
+        print("")
+        print("Total number black people in the LYL cohort:")
+        print(np.sum((in_arr6[:,10] == 1) * in_arr6[:,15]))
+        print("")
+        print("Total number nonblack people in the LYL cohort:")
+        print(np.sum((in_arr6[:,10] == 0) * in_arr6[:,15]))
+        print("")
+        print("Total number of pov in the LYL cohort:")
+        print(np.sum((in_arr6[:,13] == 1) * in_arr6[:,15]))
+        print("")
+        print("Total number of nonpov in the LYL cohort:")
+        print(np.sum((in_arr6[:,13] == 0) * in_arr6[:,15]))
+        print("")
+        print("")
+
+
         return self.output_LYL
 
     def simulate(self):

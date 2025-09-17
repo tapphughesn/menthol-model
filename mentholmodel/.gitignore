@@ -1,2 +1,5 @@
 ban_paper_figures/*
 !ban_paper_figures/.gitignore
+
+simulation_paper_figures/*
+!simulation_paper_figures/.gitignore

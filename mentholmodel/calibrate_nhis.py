@@ -1,8 +1,14 @@
+"""
+Creates a bunch of simulation data for different initiation/cessation rates.
+
+Later, that data is used to find the right initiation/cessation rate for calibrating to NHIS.
+"""
 from simulation import Simulation
 import pandas as pd
 import numpy as np
 import argparse
 import os
+
 
 def main(args):
     # 0 = male
@@ -16,12 +22,18 @@ def main(args):
     life_table_dict[2016] = {}
     life_table_dict[2017] = {}
     life_table_dict[2018] = {}
-    life_table_dict[2016][0] = pd.read_excel(os.path.join("..","..","life_tables","2016","Males","life_table_2016_male.xlsx")).to_numpy()[2:-1,1]
-    life_table_dict[2017][0] = pd.read_excel(os.path.join("..","..","life_tables","2017","Males","life_table_2017_male.xlsx")).to_numpy()[2:-1,1]
-    life_table_dict[2018][0] = pd.read_excel(os.path.join("..","..","life_tables","2018","Males","life_table_2018_male.xlsx")).to_numpy()[2:-1,1]
-    life_table_dict[2016][1] = pd.read_excel(os.path.join("..","..","life_tables","2016","Females","life_table_2016_female.xlsx")).to_numpy()[2:-1,1]
-    life_table_dict[2017][1] = pd.read_excel(os.path.join("..","..","life_tables","2017","Females","life_table_2017_female.xlsx")).to_numpy()[2:-1,1]
-    life_table_dict[2018][1] = pd.read_excel(os.path.join("..","..","life_tables","2018","Females","life_table_2018_female.xlsx")).to_numpy()[2:-1,1]
+    life_table_dict[2016][0] = pd.read_excel(os.path.join(
+        "..", "..", "life_tables", "2016", "Males", "life_table_2016_male.xlsx")).to_numpy()[2:-1, 1]
+    life_table_dict[2017][0] = pd.read_excel(os.path.join(
+        "..", "..", "life_tables", "2017", "Males", "life_table_2017_male.xlsx")).to_numpy()[2:-1, 1]
+    life_table_dict[2018][0] = pd.read_excel(os.path.join(
+        "..", "..", "life_tables", "2018", "Males", "life_table_2018_male.xlsx")).to_numpy()[2:-1, 1]
+    life_table_dict[2016][1] = pd.read_excel(os.path.join(
+        "..", "..", "life_tables", "2016", "Females", "life_table_2016_female.xlsx")).to_numpy()[2:-1, 1]
+    life_table_dict[2017][1] = pd.read_excel(os.path.join(
+        "..", "..", "life_tables", "2017", "Females", "life_table_2017_female.xlsx")).to_numpy()[2:-1, 1]
+    life_table_dict[2018][1] = pd.read_excel(os.path.join(
+        "..", "..", "life_tables", "2018", "Females", "life_table_2018_female.xlsx")).to_numpy()[2:-1, 1]
 
     # Get smoking prevalences by age and sex
     # Used for death rates
@@ -29,21 +41,30 @@ def main(args):
     smoking_prevalence_dict[2016] = {}
     smoking_prevalence_dict[2017] = {}
     smoking_prevalence_dict[2018] = {}
-    smoking_prevalence_dict[2016][0] = pd.read_excel(os.path.join("..","..","smoking_prevalences_Sep13","Smoker_percentage16_M.xlsx")).to_numpy()[:,4::3]
-    smoking_prevalence_dict[2017][0] = pd.read_excel(os.path.join("..","..","smoking_prevalences_Sep13","Smoker_percentage17_M.xlsx")).to_numpy()[:,4::3]
-    smoking_prevalence_dict[2018][0] = pd.read_excel(os.path.join("..","..","smoking_prevalences_Sep13","Smoker_percentage18_M.xlsx")).to_numpy()[:,4::3]
-    smoking_prevalence_dict[2016][1] = pd.read_excel(os.path.join("..","..","smoking_prevalences_Sep13","Smoker_percentage16_F.xlsx")).to_numpy()[:,4::3]
-    smoking_prevalence_dict[2017][1] = pd.read_excel(os.path.join("..","..","smoking_prevalences_Sep13","Smoker_percentage17_F.xlsx")).to_numpy()[:,4::3]
-    smoking_prevalence_dict[2018][1] = pd.read_excel(os.path.join("..","..","smoking_prevalences_Sep13","Smoker_percentage18_F.xlsx")).to_numpy()[:,4::3]
+    smoking_prevalence_dict[2016][0] = pd.read_excel(os.path.join(
+        "..", "..", "smoking_prevalences_Sep13", "Smoker_percentage16_M.xlsx")).to_numpy()[:, 4::3]
+    smoking_prevalence_dict[2017][0] = pd.read_excel(os.path.join(
+        "..", "..", "smoking_prevalences_Sep13", "Smoker_percentage17_M.xlsx")).to_numpy()[:, 4::3]
+    smoking_prevalence_dict[2018][0] = pd.read_excel(os.path.join(
+        "..", "..", "smoking_prevalences_Sep13", "Smoker_percentage18_M.xlsx")).to_numpy()[:, 4::3]
+    smoking_prevalence_dict[2016][1] = pd.read_excel(os.path.join(
+        "..", "..", "smoking_prevalences_Sep13", "Smoker_percentage16_F.xlsx")).to_numpy()[:, 4::3]
+    smoking_prevalence_dict[2017][1] = pd.read_excel(os.path.join(
+        "..", "..", "smoking_prevalences_Sep13", "Smoker_percentage17_F.xlsx")).to_numpy()[:, 4::3]
+    smoking_prevalence_dict[2018][1] = pd.read_excel(os.path.join(
+        "..", "..", "smoking_prevalences_Sep13", "Smoker_percentage18_F.xlsx")).to_numpy()[:, 4::3]
 
     # Get Releative Risks for current smokers vs nonsmoker and former smoker vs current smoker
     # According to a published review
-    csvnsRR = pd.read_excel(os.path.join("..", "..", "smoking_mortality", "current_smoker_mortality_vs_nonsmoker.xlsx")).to_numpy()[:,1:]
-    fsvcsRR = pd.read_excel(os.path.join("..", "..", "smoking_mortality", "former_smoker_mortality_vs_current_smoker.xlsx")).to_numpy()[:,1:]
+    csvnsRR = pd.read_excel(os.path.join("..", "..", "smoking_mortality",
+                            "current_smoker_mortality_vs_nonsmoker.xlsx")).to_numpy()[:, 1:]
+    fsvcsRR = pd.read_excel(os.path.join("..", "..", "smoking_mortality",
+                            "former_smoker_mortality_vs_current_smoker.xlsx")).to_numpy()[:, 1:]
 
     # Get population data
     # UNCALIBRATED
-    pop_file_name = os.path.join("..","..","population_files_Feb8","population_file_sent_Feb8.xlsx")
+    pop_file_name = os.path.join(
+        "..", "..", "population_files_Feb8", "population_file_sent_Feb8.xlsx")
     # CALIBRATED
     # pop_file_name = os.path.join("..","..","Calibrated Population","Calibrated Population","PATH_Calibrate_18_64.xlsx")
 
@@ -59,9 +80,12 @@ def main(args):
     """
 
     # UNCALIBRATED
-    cohorts_18_dict[2015] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 2 fresh population profile.xlsx")).to_numpy()
-    cohorts_18_dict[2016] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 3 fresh population profile.xlsx")).to_numpy()
-    cohorts_18_dict[2017] = pd.read_excel(os.path.join("..", "..", "corrected_18yo_cohorts", "Wave 4 fresh population profile.xlsx")).to_numpy()
+    cohorts_18_dict[2015] = pd.read_excel(os.path.join(
+        "..", "..", "corrected_18yo_cohorts", "Wave 2 fresh population profile.xlsx")).to_numpy()
+    cohorts_18_dict[2016] = pd.read_excel(os.path.join(
+        "..", "..", "corrected_18yo_cohorts", "Wave 3 fresh population profile.xlsx")).to_numpy()
+    cohorts_18_dict[2017] = pd.read_excel(os.path.join(
+        "..", "..", "corrected_18yo_cohorts", "Wave 4 fresh population profile.xlsx")).to_numpy()
 
     # CALIBRATED
     # cohorts_18_dict[2015] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave2_Calibrate_18.xlsx")).to_numpy()
@@ -69,21 +93,21 @@ def main(args):
     # cohorts_18_dict[2017] = pd.read_excel(os.path.join("..", "..", "Calibrated Population", "Calibrated Population", "Wave4_Calibrate_18.xlsx")).to_numpy()
 
     # Get logistic regression betas
-    beta2345_f = os.path.join("..","..","Output_SM","Betas","Beta_Estimates_2345.xlsx")
-    beta1_f = os.path.join("..","..","Output_SM","Betas","Beta_Estimates_1.xlsx")
-    beta2345_arr = pd.read_excel(beta2345_f).to_numpy()[:,2:]
-    beta1_arr = pd.read_excel(beta1_f).to_numpy()[:,2:]
+    beta2345_f = os.path.join("..", "..", "Output_SM",
+                              "Betas", "Beta_Estimates_2345.xlsx")
+    beta1_f = os.path.join("..", "..", "Output_SM",
+                           "Betas", "Beta_Estimates_1.xlsx")
+    beta2345_arr = pd.read_excel(beta2345_f).to_numpy()[:, 2:]
+    beta1_arr = pd.read_excel(beta1_f).to_numpy()[:, 2:]
 
     # our magic smoking percentage for calibration
-    # path to the magic file I'm using:
-    # /Users/nick/Documents/Gillings_work/nhis_data/NHIS_smoker_proportions./NHIS_State_age/NHIS_State_age/NHIS_state_age18_64.xlsx
-
     NHIS_smoking_percentage = 0.151316
 
-    for reduction in np.linspace(0.04,0.08,41):
+    for reduction in np.linspace(0.04, 0.08, 41):
         r = np.around(reduction, decimals=3)
         r_str = str(int(r * 1000))
-        while len(r_str) < 3: r_str = "0" + r_str
+        while len(r_str) < 3:
+            r_str = "0" + r_str
         print(r_str)
         save_dir = '../../nhis_calib_outputs/'
         if not os.path.isdir(os.path.join(save_dir, r_str)):
@@ -96,30 +120,30 @@ def main(args):
             while len(i_str) < 3:
                 i_str = "0" + i_str
             # print(i_str)
-            s = Simulation(pop_df=pop_df, 
-                        beta2345=beta2345_arr, 
-                        beta1=beta1_arr, 
-                        life_tables=life_table_dict,
-                        cohorts=cohorts_18_dict,
-                        smoking_prevalences=smoking_prevalence_dict,
-                        current_smoker_RR=csvnsRR,
-                        former_smoker_RR=fsvcsRR,
-                        # save_xl_fname='xl_output_calibrated',
-                        save_np_fname='np_output_calibrated',
-                        # save_transition_np_fname='transitions_calibrated',
-                        save_dir='../../nhis_calib_outputs/' + r_str + '/',
-                        use_adjusted_death_rates=not args.simple_death_rates,
-                        end_year = 2020,
-                        menthol_ban=args.menthol_ban,
-                        short_term_option=1,
-                        long_term_option=5,
-                        menthol_ban_year = 2021,
-                        target_initial_smoking_proportion=NHIS_smoking_percentage,
-                        initiation_rate_decrease=r,
-                        continuation_rate_decrease=0.055,
-                        )
+            s = Simulation(pop_df=pop_df,
+                           beta2345=beta2345_arr,
+                           beta1=beta1_arr,
+                           life_tables=life_table_dict,
+                           cohorts=cohorts_18_dict,
+                           smoking_prevalences=smoking_prevalence_dict,
+                           current_smoker_RR=csvnsRR,
+                           former_smoker_RR=fsvcsRR,
+                           # save_xl_fname='xl_output_calibrated',
+                           save_np_fname='np_output_calibrated',
+                           # save_transition_np_fname='transitions_calibrated',
+                           save_dir='../../nhis_calib_outputs/' + r_str + '/',
+                           use_adjusted_death_rates=not args.simple_death_rates,
+                           end_year=2020,
+                           menthol_ban=args.menthol_ban,
+                           short_term_option=1,
+                           long_term_option=5,
+                           menthol_ban_year=2021,
+                           target_initial_smoking_proportion=NHIS_smoking_percentage,
+                           initiation_rate_decrease=r,
+                           continuation_rate_decrease=0.055,
+                           )
             s.simulate()
-    
+
     # for i in range(21):
     #     j = 5.0 + i / 10
     #     i_str = str(j)
@@ -127,9 +151,9 @@ def main(args):
     #         i_str = "0" + i_str
     #     print(i_str)
     #     assert(len(i_str) == 3)
-    #     s = Simulation(pop_df=pop_df, 
-    #                 beta2345=beta2345_arr, 
-    #                 beta1=beta1_arr, 
+    #     s = Simulation(pop_df=pop_df,
+    #                 beta2345=beta2345_arr,
+    #                 beta1=beta1_arr,
     #                 life_tables=life_table_dict,
     #                 cohorts=cohorts_18_dict,
     #                 smoking_prevalences=smoking_prevalence_dict,
@@ -150,18 +174,20 @@ def main(args):
     #                 )
     #     s.simulate()
 
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Specify simulation parameters')
-    parser.add_argument('number_replications', 
+    parser = argparse.ArgumentParser(
+        description='Specify simulation parameters')
+    parser.add_argument('number_replications',
                         type=int,
                         default=1,
                         help='the number of relplications to do')
-    parser.add_argument('--simple_death_rates', 
+    parser.add_argument('--simple_death_rates',
                         # type=bool,
                         default=False,
                         action='store_true',
                         help='whether or not to use separate death rates for smokers, nonsmokers, and former smokers')
-    parser.add_argument('--menthol_ban', 
+    parser.add_argument('--menthol_ban',
                         # type=bool,
                         default=False,
                         action='store_true',

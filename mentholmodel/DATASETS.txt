@@ -1,0 +1,83 @@
+These datasets are used in the simulation model.
+The filenames and brief descriptions are listed.
+
+1. Life Tables
+Filename(s):
+    life_table_2016_male.xlsx
+    life_table_2017_male.xlsx
+    life_table_2018_male.xlsx
+    life_table_2016_female.xlsx
+    life_table_2017_female.xlsx
+    life_table_2018_female.xlsx
+Description:
+    The life tables contain the probability of death based on a person's age and sex.
+    These are averages from the US population. They are used to calculate death rates in each year.
+
+2. Initial Population
+Filename(s):
+    population_file_sent_Feb8.xlsx
+Description:
+    The initial population in 2016, based on PATH data. Each of the ~19000 rows is an individual
+    that gets simulated. Each row contains some data for the individual that are used as covariates
+    in the logistic regression model. The "weight" column shows how many people in the adult US
+    population are represented by this row. Once this population file is read by the simulation
+    program, it is usually translated into a better format for computaitons. 
+
+3. Cohorts of 18-year-olds
+Filename(s):
+    Wave 2 fresh population profile.xlsx
+    Wave 3 fresh population profile.xlsx
+    Wave 4 fresh population profile.xlsx
+    postban population profile.xlsx
+Description:
+    These are similar to the initial population file. These files also describe a population.
+    However, rather than being representative of the whole adult US population, they are 
+    representative of the population of 18-year-olds in 2015 (Wave 2 of the PATH study), 2016 (Wave 
+    3), and 2017 (Wave 4). The 'postban population profile' is used some years after the simulated
+    menthol ban--it is based on the Wave 4 cohort of 18-year-olds, but has much less smokers while
+    maintaining the same overall population. These are used to add new population into the 
+    simulation each year so that we can continue to simulate the whole adult population. 
+
+4. Beta Parameters
+Filename(s):
+    Beta_Estimates_2345.xlsx
+    Beta_Estimates_1.xlsx
+Description:
+    These are the parameters we estimated for a multinomial logistic regression model that predicts
+    an individual's smoking state in 2017 based on covariates from 2016. The logistic regression
+    model was trained on PATH data. The parameters were estimated before the simulation was built.
+    The model is used during the simulation to infer an individual's smoking state each year, based
+    on covariates from last year.
+
+5. Relative Risk Information
+Filename(s):
+    csvns_bounds.xlsx
+    fsvcs_bounds_adjusted.xlsx
+Description:
+    These tables contain the relative risks of all-cause mortality of one smoking status group to
+    another. The filenames use the acronyms Current Smoker Versus Non Smoker (csvns) and Former
+    Smoker Versus Non Smoker (fsvcs). For example, the fsvcs table can tell you the relative risk
+    of all-cause mortality of a male former smoker who has quit for 2-4 years vs one who is a
+    current smoker.
+
+6. Smoking Rate Percentages
+Filename(s):
+    Smoker_percentage16_M.xlsx
+    Smoker_percentage17_M.xlsx
+    Smoker_percentage18_M.xlsx
+    Smoker_percentage16_F.xlsx
+    Smoker_percentage17_F.xlsx
+    Smoker_percentage18_F.xlsx
+Description:
+    These tables contain the average smoking rate of US adults, stratified by age and sex.
+
+7. NHIS/BRFSS Smoking Rates
+Filename(s):
+    NHIS_state_age_Sep2022.xlsx
+    BRFSSNHIS_Jiaqian.xlsx
+    NHIS_state_Jiaqian_Oct2023.xlsx
+    NHIS_state_age18_64.xlsx
+Description: 
+    Contains smoking rate data from NHIS and BRFSS. The table 'NHIS_state_age_Sep2022.xlsx' is used
+    to calibrate the initiation/cessation rate used in the model. The other tables are used for
+    tables and figures comparing the model outputs to external estimations of smoking rates. 

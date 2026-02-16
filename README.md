@@ -11,14 +11,18 @@ The main files of interest are:
 
 If you use this work, please cite:
 
-<!-- ```bibtex
-@article{doe2024example,
-  title   = {An Example Paper on Something Interesting},
-  author  = {Doe, John and Smith, Jane},
-  journal = {Journal of Interesting Results},
-  year    = {2024},
-  volume  = {42},
-  number  = {7},
-  pages   = {123--145},
-  doi     = {10.1234/example-doi}
-} -->
+```bibtex
+@article{10.1371/journal.pone.0342083,
+    doi = {10.1371/journal.pone.0342083},
+    author = {Mills, Sarah D. AND Tapp Hughes, Nicholas AND Zhang, Yu AND Ribisl, Kurt M. AND Wiesen, Christopher A. AND Fan, Jiaqian AND Hassmiller Lich, Kristen},
+    journal = {PLOS ONE},
+    publisher = {Public Library of Science},
+    title = {Development and validation of the Tobacco Use Individual-level Simulation and Tracking (TwIST) Model},
+    year = {2026},
+    month = {02},
+    volume = {21},
+    url = {https://doi.org/10.1371/journal.pone.0342083},
+    pages = {1-17},
+    number = {2},
+}
+```

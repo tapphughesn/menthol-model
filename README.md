@@ -12,7 +12,7 @@ The main files of interest are:
 If you use this work, please cite:
 
 ```bibtex
-@article{10.1371/journal.pone.0342083,
+@article{mills-tapphughes2026
     doi = {10.1371/journal.pone.0342083},
     author = {Mills, Sarah D. AND Tapp Hughes, Nicholas AND Zhang, Yu AND Ribisl, Kurt M. AND Wiesen, Christopher A. AND Fan, Jiaqian AND Hassmiller Lich, Kristen},
     journal = {PLOS ONE},
